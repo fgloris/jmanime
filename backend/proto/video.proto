@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package transcoding;
+
+service TranscodingService {
+  rpc TranscodeVideo(TranscodeRequest) returns (TranscodeResponse) {};
+  rpc GetTranscodeStatus(StatusRequest) returns (StatusResponse) {};
+}
+
+message TranscodeRequest {
+  string task_id = 1;
+  string source_path = 2;
+  repeated VideoFormat output_formats = 3;
+  int32 priority = 4;
+}
+
+message VideoFormat {
+  string format = 1;
+  int32 width = 2;
+  int32 height = 3;
+  int32 bitrate = 4;
+}
+
+message TranscodeResponse {
+  string task_id = 1;
+  bool accepted = 2;
+  string message = 3;
+}
+
+message StatusRequest {
+  string task_id = 1;
+}
+
+message StatusResponse {
+  string task_id = 1;
+  string status = 2; // PENDING, PROCESSING, COMPLETED, FAILED
+  int32 progress = 3;
+  string message = 4;
+  repeated string output_paths = 5;
+}

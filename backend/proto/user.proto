@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package user_service;
+
+service UserService {
+  rpc Register(RegisterRequest) returns (RegisterResponse) {};
+  rpc Login(LoginRequest) returns (LoginResponse) {};
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {};
+}
+
+message RegisterRequest {
+  string email = 1;
+  string username = 2;
+  string password = 3;
+  string avatar = 4;
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+  string token = 4;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+  string token = 4;
+  string username = 5;
+  string avatar = 6;
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  string user_id = 2;
+}
