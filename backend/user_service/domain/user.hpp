@@ -24,3 +24,4 @@ private:
   std::string salt_;
   std::string avatar_;
 };
+}

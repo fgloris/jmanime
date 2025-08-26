@@ -1,5 +1,4 @@
 #pragma once
-#include <memory>
 #include <optional>
 #include "domain/user.hpp"
 
@@ -11,3 +10,4 @@ public:
   virtual std::optional<User> findById(const std::string& id) = 0;
   virtual std::optional<User> findByEmail(const std::string& email) = 0;
 };
+}

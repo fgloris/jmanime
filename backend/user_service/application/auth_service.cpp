@@ -1,0 +1,112 @@
+#pragma once
+#include "auth_service.hpp"
+
+namespace user_service {
+std::tuple<bool, std::string, std::string> AuthService::registerAndStore(const std::string& email,
+                                                   const std::string& username,
+                                                   const std::string& password,
+                                                   const std::string& avatar) {
+  if (repository_->findByEmail(email)) {
+    return {false, "Email already exists", ""};
+  }
+
+  uuid_t uuid;
+  uuid_generate(uuid);
+  char uuid_str[37];
+  uuid_unparse(uuid, uuid_str);
+
+  unsigned char salt[16];
+  if (RAND_bytes(salt, sizeof(salt)) != 1) {
+    return {false, "Failed to generate salt", ""};
+  }
+
+  std::string salt_str;
+  for (int i = 0; i < 16; i++) {
+    char hex[3];
+    snprintf(hex, sizeof(hex), "%02x", salt[i]);
+    salt_str += hex;
+  }
+
+  std::string salted_password = password + salt_str;
+  unsigned char hash[EVP_MAX_MD_SIZE];
+  unsigned int hash_len;
+  
+  auto ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
+  EVP_DigestUpdate(ctx, salted_password.c_str(), salted_password.length());
+  EVP_DigestFinal_ex(ctx, hash, &hash_len);
+  EVP_MD_CTX_free(ctx);
+
+  std::string hash_str;
+  for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+    char hex[3];
+    snprintf(hex, sizeof(hex), "%02x", hash[i]);
+    hash_str += hex;
+  }
+
+  User user(uuid_str, email, username, hash_str, salt_str, avatar);
+  if (!repository_->save(user)) {
+    return {false, "Failed to save user", ""};
+  }
+
+  auto token = createToken(uuid_str);
+  return {true, token, uuid_str};
+}
+
+std::tuple<bool, std::string, User> AuthService::login(const std::string& email,
+                                        const std::string& password) {
+  auto user_opt = repository_->findByEmail(email);
+  if (!user_opt) {
+    return {false, "Invalid email or password", User("", "", "", "", "", "")};
+  }
+
+  auto user = user_opt.value();
+  std::string salted_password = password + user.salt();
+  unsigned char hash[EVP_MAX_MD_SIZE];
+  unsigned int hash_len;
+  
+  auto ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
+  EVP_DigestUpdate(ctx, salted_password.c_str(), salted_password.length());
+  EVP_DigestFinal_ex(ctx, hash, &hash_len);
+  EVP_MD_CTX_free(ctx);
+
+  std::string hash_str;
+  for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+    char hex[3];
+    snprintf(hex, sizeof(hex), "%02x", hash[i]);
+    hash_str += hex;
+  }
+
+  if (hash_str != user.password_hash()) {
+    return {false, "Invalid email or password", User("", "", "", "", "", "")};
+  }
+
+  auto token = createToken(user.id());
+  return {true, token, user};
+}
+
+std::pair<bool, std::string> AuthService::validateToken(const std::string& token) {
+  try {
+    auto decoded = jwt::decode(token);
+    auto verifier = jwt::verify()
+      .allow_algorithm(jwt::algorithm::hs256{jwt_secret_});
+    verifier.verify(decoded);
+    
+    auto user_id = decoded.get_payload_claim("user_id").as_string();
+    return {true, user_id};
+  } catch (std::exception&) {
+    return {false, ""};
+  }
+}
+
+std::string AuthService::createToken(const std::string& user_id) {
+  return jwt::create()
+    .set_issuer("auth0")
+    .set_type("JWS")
+    .set_issued_at(std::chrono::system_clock::now())
+    .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
+    .set_payload_claim("user_id", jwt::claim(user_id))
+    .sign(jwt::algorithm::hs256{jwt_secret_});
+}
+}

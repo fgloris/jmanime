@@ -11,11 +11,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(UUID REQUIRED uuid)
 pkg_check_modules(MYSQLCLIENT REQUIRED mysqlclient)
 
-find_package(jwt-cpp REQUIRED)
-
-message(STATUS "Using gRPC ${gRPC_VERSION}, Protobuf ${Protobuf_VERSION}")
-
-file(GLOB_RECURSE SOURCES "./*/*.cpp")
+# Main executable
+file(GLOB_RECURSE SOURCES "application/*.cpp" "domain/*.cpp" "infrastructure/*.cpp" "interface/*.cpp")
 add_executable(${PROJECT_NAME} 
   ${SOURCES}
   ${PROTO_SRCS}
@@ -43,4 +40,19 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   ${UUID_LIBRARIES}
   ${MYSQLCLIENT_LIBRARIES}
   jwt-cpp
+)
+
+add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS})
+
+target_include_directories(${PROJECT_NAME}_client PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${Protobuf_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_BINARY_DIR}
+  ${PROTO_GEN_DIR}
+)
+
+target_link_libraries(${PROJECT_NAME}_client PRIVATE
+  protobuf::libprotobuf
+  gRPC::grpc
+  gRPC::grpc++
 )

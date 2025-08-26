@@ -13,7 +13,7 @@ public:
   grpc::Status Register(grpc::ServerContext* context,
                        const RegisterRequest* request,
                        RegisterResponse* response) override {
-    auto [success, message] = auth_service_->register_user(
+    auto [success, message, user_id] = auth_service_->registerAndStore(
       request->email(),
       request->username(),
       request->password(),
@@ -21,7 +21,12 @@ public:
     );
 
     response->set_success(success);
-    response->set_message(message);
+    if (success) {
+      response->set_user_id(user_id);
+      response->set_token(message);  // message 在成功时包含 token
+    } else {
+      response->set_message(message);
+    }
     return grpc::Status::OK;
   }
 
@@ -46,9 +51,9 @@ public:
   }
 
   grpc::Status ValidateToken(grpc::ServerContext* context,
-                           const ValidateTokenRequest* request,
-                           ValidateTokenResponse* response) override {
-    auto [valid, user_id] = auth_service_->validate_token(request->token());
+                            const ValidateTokenRequest* request,
+                            ValidateTokenResponse* response) override {
+    auto [valid, user_id] = auth_service_->validateToken(request->token());
     response->set_valid(valid);
     if (valid) {
       response->set_user_id(user_id);
@@ -59,3 +64,4 @@ public:
 private:
   std::shared_ptr<AuthService> auth_service_;
 };
+}

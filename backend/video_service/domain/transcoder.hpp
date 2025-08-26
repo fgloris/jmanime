@@ -36,11 +36,11 @@ class Transcoder {
   // AV_LOG_TRACE   = 56
   Transcoder(int loglevel = AV_LOG_ERROR);
   static std::expected<VideoFile, std::string> transcode(const std::string& input_path,
-                                                  const std::string& output_path,
-                                                  const VideoFormat& constrant);
+                                                        const std::string& output_path,
+                                                        const VideoFormat& constrant);
   static std::future<std::expected<VideoFile, std::string>>createTask(const std::string& input_path,
-                                                                      const std::string& output_path,
-                                                                      const VideoFormat& constrant){
+                                                                     const std::string& output_path,
+                                                                     const VideoFormat& constrant){
     return std::async(std::launch::async, std::bind(&video_service::Transcoder::transcode, input_path, output_path, constrant));}
   void setLogLevel(int loglevel);
   struct Context {

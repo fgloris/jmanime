@@ -10,8 +10,8 @@ void Transcoder::setLogLevel(int loglevel) {
 }
 
 std::expected<VideoFile, std::string> Transcoder::transcode(const std::string& input_path,
-                                                            const std::string& output_path,
-                                                            const VideoFormat& constrant) {
+                                                           const std::string& output_path,
+                                                           const VideoFormat& constrant) {
   Context ctx;
   if (const auto result = openInputFile(input_path, ctx); !result.has_value()) {
     return std::unexpected<std::string>(result.error());

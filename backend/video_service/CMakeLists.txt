@@ -3,6 +3,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_CXX_STANDARD 23)
 project(video_service)
 
+set(DEBUG off)
 
 # use boost 1.89 built from source.
 set(BOOST_ROOT "/usr/local")
