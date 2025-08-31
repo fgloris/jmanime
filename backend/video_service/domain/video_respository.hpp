@@ -4,10 +4,9 @@
 #include "video.hpp"
 
 // std
-#include <future>
+#include <vector>
 #include <string>
 #include <expected>
-#include <functional>
 
 namespace video_service {
 

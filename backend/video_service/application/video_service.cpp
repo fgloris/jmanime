@@ -18,8 +18,7 @@ std::expected<VideoFile, std::string> VideoService::uploadVideo(
   const std::string& auth_token,
   const std::string& url,
   const std::string& title,
-  const std::string& description,
-  const VideoFormat& format
+  const std::string& description
 ) {
   uuid_t uuid;
   uuid_generate(uuid);
@@ -61,6 +60,19 @@ std::expected<VideoFile, std::string> VideoService::uploadVideo(
   video.info.updated_at = video.info.created_at;
   
   return repository_->save(video);
+}
+
+std::expected<std::string, std::string> VideoService::downloadVideo(
+  const std::string& auth_token,
+  const std::string& video_id
+) {
+  auto video = repository_->findById(video_id);
+  if (!video) {
+    return std::unexpected("Video not found");
+  }
+  
+  // Return direct file URL for download
+  return std::expected<std::string, std::string>("/download/" + video_id + "/" + std::filesystem::path(video->storage.path).filename().string());
 }
 
 std::expected<std::string, std::string> VideoService::startStreaming(

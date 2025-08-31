@@ -32,6 +32,7 @@ add_executable(${PROJECT_NAME}
 add_dependencies(${PROJECT_NAME} proto_gen)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${Boost_INCLUDE_DIRS}
   ${Protobuf_INCLUDE_DIRS}

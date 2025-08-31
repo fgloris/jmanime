@@ -22,8 +22,7 @@ public:
     const std::string& auth_token,
     const std::string& url,
     const std::string& title,
-    const std::string& description,
-    const VideoFormat& format
+    const std::string& description
   );
   
   std::expected<std::string, std::string> startStreaming(
@@ -31,6 +30,11 @@ public:
     const std::string& video_id
   );
   
+  std::expected<std::string, std::string> downloadVideo(
+    const std::string& auth_token,
+    const std::string& video_id
+  );
+
   std::expected<VideoFile, std::string> getVideoInfo(
     const std::string& auth_token,
     const std::string& video_id

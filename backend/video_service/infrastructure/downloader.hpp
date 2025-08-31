@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <expected>
-#include <functional>
 #include <curl/curl.h>
 #include "domain/download_service.hpp"
 

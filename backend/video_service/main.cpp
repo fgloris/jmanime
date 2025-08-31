@@ -3,29 +3,39 @@
 #include "infrastructure/downloader.hpp"
 #include "infrastructure/hls_server.hpp"
 #include "infrastructure/transcoder.hpp"
+#include "common/config.hpp"
 #include <grpcpp/server_builder.h>
 #include <filesystem>
+#include <sstream>
 #include <thread>
 
 int main(int argc, char** argv) {
-  const std::string storage_path = "/tmp/videos";
-  std::filesystem::create_directories(storage_path);
-  
-  std::shared_ptr<video_service::VideoRepository> repository = 
-    std::make_shared<video_service::MysqlVideoRepository>(
-      "localhost", "user", "password", "video_db"
-    );
+  try {
+    const auto& cfg = config::Config::getInstance();
+    const auto& storage_path = cfg.getStoragePath();
+    std::filesystem::create_directories(storage_path);
+    
+    const auto& db_config = cfg.getDatabase();
+    std::shared_ptr<video_service::VideoRepository> repository = 
+      std::make_shared<video_service::MysqlVideoRepository>(
+        db_config.host,
+        db_config.user,
+        db_config.password,
+        db_config.name
+      );
   
   std::shared_ptr<video_service::DownloadService> download_service = 
     std::make_shared<video_service::Downloader>();
   
+  const auto& streaming_config = cfg.getStreaming();
   std::shared_ptr<video_service::StreamingService> streaming_service = 
-    std::make_shared<video_service::HlsServer>("0.0.0.0", 8080);
+    std::make_shared<video_service::HlsServer>(
+      streaming_config.host,
+      streaming_config.port
+    );
   
   std::shared_ptr<video_service::TranscodingService> transcoding_service = 
     std::make_shared<video_service::Transcoder>();
-  
-  streaming_service->startServer(storage_path);
   
   auto video_service = std::make_shared<video_service::VideoService>(
     repository, download_service, streaming_service, transcoding_service, storage_path
@@ -33,21 +43,31 @@ int main(int argc, char** argv) {
   
   video_service::VideoServiceImpl service(video_service);
   
+  const auto& service_config = cfg.getVideoService();
+  std::stringstream server_address;
+  server_address << service_config.host << ":" << service_config.port;
+  
   grpc::ServerBuilder builder;
-  builder.AddListeningPort("0.0.0.0:50051", grpc::InsecureServerCredentials());
+  builder.AddListeningPort(server_address.str(), grpc::InsecureServerCredentials());
   builder.RegisterService(&service);
   
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-  std::cout << "Server listening on 0.0.0.0:50051" << std::endl;
+  std::cout << "Server listening on " << server_address.str() << std::endl;
   
-  std::thread hls_thread([&hls_server]() {
-    hls_server->run();
+  // Start HLS server in background thread
+  std::thread hls_thread([streaming_service, storage_path]() {
+    streaming_service->startServer(storage_path);
   });
   
   server->Wait();
   
-  hls_server->stop();
+  // Stop HLS server
+  streaming_service->stopServer();
   hls_thread.join();
   
   return 0;
+  } catch (const std::exception& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+    return 1;
+  }
 }

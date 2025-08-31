@@ -5,6 +5,9 @@ project(jmanime)
 
 option(DEBUG "Enable debug mode" OFF)
 
+# Add common directory to include path
+include_directories(${CMAKE_SOURCE_DIR})
+
 get_filename_component(vid_proto "proto/video.proto" ABSOLUTE)
 get_filename_component(user_proto "proto/user.proto" ABSOLUTE)
 get_filename_component(vid_proto_path "${vid_proto}" PATH)

@@ -1,4 +1,3 @@
-#pragma once
 #include "auth_service.hpp"
 
 namespace user_service {

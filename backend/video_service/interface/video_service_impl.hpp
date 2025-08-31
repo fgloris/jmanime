@@ -23,6 +23,10 @@ public:
   grpc::Status ListVideos(grpc::ServerContext* context,
                          const video::ListVideosRequest* request,
                          video::ListVideosResponse* response) override;
+
+  grpc::Status StartStreaming(grpc::ServerContext* context,
+                             const video::StartStreamingRequest* request,
+                             video::StartStreamingResponse* response) override;
                          
   grpc::Status DeleteVideo(grpc::ServerContext* context,
                           const video::DeleteVideoRequest* request,
