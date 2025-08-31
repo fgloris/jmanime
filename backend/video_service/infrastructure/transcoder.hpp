@@ -1,7 +1,7 @@
 #pragma once
 
 // project
-#include "../common/types.hpp"
+#include "domain/transcoding_service.hpp"
 
 // std
 #include <future>
@@ -23,7 +23,7 @@ extern "C" {
 }
 
 namespace video_service {
-class Transcoder {
+class Transcoder: public TranscodingService {
   public:
   // AV_LOG_QUIET   = -8
   // AV_LOG_PANIC   =  0
@@ -38,9 +38,9 @@ class Transcoder {
   static std::expected<VideoFile, std::string> transcode(const std::string& input_path,
                                                         const std::string& output_path,
                                                         const VideoFormat& constrant);
-  static std::future<std::expected<VideoFile, std::string>>createTask(const std::string& input_path,
-                                                                     const std::string& output_path,
-                                                                     const VideoFormat& constrant){
+  std::future<std::expected<VideoFile, std::string>>getTranscodeFuture(const std::string& input_path,
+                                                                      const std::string& output_path,
+                                                                      const VideoFormat& constrant) override {
     return std::async(std::launch::async, std::bind(&video_service::Transcoder::transcode, input_path, output_path, constrant));}
   void setLogLevel(int loglevel);
   struct Context {

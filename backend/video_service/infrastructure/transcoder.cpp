@@ -97,7 +97,7 @@ std::expected<VideoFile, std::string> Transcoder::transcode(const std::string& i
   return VideoFile{
     output_path,
     constrant,
-    VideoMetaData{}
+    VideoMetaData{},
   };
 }
 

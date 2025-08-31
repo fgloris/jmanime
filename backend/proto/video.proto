@@ -3,11 +3,11 @@ syntax = "proto3";
 package transcoding;
 
 service TranscodingService {
-  rpc TranscodeVideo(TranscodeRequest) returns (TranscodeResponse) {};
+  rpc TranscodeVideo(Transcoderequest) returns (Transcoderesponse) {};
   rpc GetTranscodeStatus(StatusRequest) returns (StatusResponse) {};
 }
 
-message TranscodeRequest {
+message Transcoderequest {
   string task_id = 1;
   string source_path = 2;
   repeated VideoFormat output_formats = 3;
@@ -21,7 +21,7 @@ message VideoFormat {
   int32 bitrate = 4;
 }
 
-message TranscodeResponse {
+message Transcoderesponse {
   string task_id = 1;
   bool accepted = 2;
   string message = 3;
