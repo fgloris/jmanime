@@ -1,40 +1,95 @@
 syntax = "proto3";
 
-package transcoding;
+package video;
 
-service TranscodingService {
-  rpc TranscodeVideo(Transcoderequest) returns (Transcoderesponse) {};
-  rpc GetTranscodeStatus(StatusRequest) returns (StatusResponse) {};
-}
-
-message Transcoderequest {
-  string task_id = 1;
-  string source_path = 2;
-  repeated VideoFormat output_formats = 3;
-  int32 priority = 4;
+service VideoService {
+  rpc UploadVideo(UploadVideoRequest) returns (UploadVideoResponse);
+  rpc GetVideoInfo(GetVideoInfoRequest) returns (GetVideoInfoResponse);
+  rpc ListVideos(ListVideosRequest) returns (ListVideosResponse);
+  rpc StartStreaming(StartStreamingRequest) returns (StartStreamingResponse);
+  rpc DeleteVideo(DeleteVideoRequest) returns (DeleteVideoResponse);
 }
 
 message VideoFormat {
-  string format = 1;
-  int32 width = 2;
-  int32 height = 3;
-  int32 bitrate = 4;
+  int32 width = 1;
+  int32 height = 2;
+  int32 bitrate = 3;
+  string format = 4;
+  string codec = 5;
 }
 
-message Transcoderesponse {
-  string task_id = 1;
-  bool accepted = 2;
-  string message = 3;
+message VideoFileStorage {
+  string path = 1;
+  VideoFormat format = 2;
 }
 
-message StatusRequest {
-  string task_id = 1;
+message VideoPresentInfo {
+  int32 duration = 1;
+  string title = 2;
+  string description = 3;
+  string url = 4;
+  string created_at = 5;
+  string updated_at = 6;
 }
 
-message StatusResponse {
-  string task_id = 1;
-  string status = 2; // PENDING, PROCESSING, COMPLETED, FAILED
-  int32 progress = 3;
-  string message = 4;
-  repeated string output_paths = 5;
+message VideoFile {
+  string uuid = 1;
+  VideoFileStorage storage = 2;
+  VideoPresentInfo info = 3;
+}
+
+message UploadVideoRequest {
+  string auth_token = 1;
+  string url = 2;
+  string title = 3;
+  string description = 4;
+  VideoFormat format = 5;
+}
+
+message UploadVideoResponse {
+  bool success = 1;
+  string message = 2;
+  VideoFile video = 3;
+}
+
+message GetVideoInfoRequest {
+  string auth_token = 1;
+  string video_id = 2;
+}
+
+message GetVideoInfoResponse {
+  bool success = 1;
+  string message = 2;
+  VideoFile video = 3;
+}
+
+message ListVideosRequest {
+  string auth_token = 1;
+}
+
+message ListVideosResponse {
+  bool success = 1;
+  string message = 2;
+  repeated VideoFile videos = 3;
+}
+
+message StartStreamingRequest {
+  string auth_token = 1;
+  string video_id = 2;
+}
+
+message StartStreamingResponse {
+  bool success = 1;
+  string message = 2;
+  string stream_url = 3;
+}
+
+message DeleteVideoRequest {
+  string auth_token = 1;
+  string video_id = 2;
+}
+
+message DeleteVideoResponse {
+  bool success = 1;
+  string message = 2;
 }

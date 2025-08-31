@@ -11,9 +11,13 @@ struct VideoFormat {
   std::string codec;   // video codec like "h264", "h265", "libx264"
 };
 
-struct VideoMetaData {
+struct VideoFileStorage {
+  std::string path;        // file current path
+  VideoFormat format;      // created with ffmpeg, changed when transcoded
+};
+
+struct VideoPresentInfo {
   int duration{0};
-  int64_t size{0};
   std::string title;
   std::string description;
   std::string url;
@@ -22,10 +26,12 @@ struct VideoMetaData {
 };
 
 struct VideoFile {
-  std::string id;      // uuid, created when file first stored, should keep unchanged when file moves
-  std::string path;    // file current path
-  VideoFormat format;      // created with ffmpeg, changed when transcoded
-  VideoMetaData metadata;  // created with ffmpeg
+  std::string uuid; 
+  VideoFileStorage storage;  // created with ffmpeg, changed when transcoded
+  VideoPresentInfo info;    // created with ffmpeg
 };
+
+#define RAW_DOWNLOAD_FILE_SUFFIX "_raw"
+#define TEMP_FILE_SUFFIX "_temp"
 
 } // namespace video_service

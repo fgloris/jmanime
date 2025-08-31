@@ -9,15 +9,15 @@ void Transcoder::setLogLevel(int loglevel) {
   av_log_set_level(loglevel);
 }
 
-std::expected<VideoFile, std::string> Transcoder::transcode(const std::string& input_path,
-                                                           const std::string& output_path,
-                                                           const VideoFormat& constrant) {
+std::expected<VideoFileStorage, std::string> Transcoder::transcode(const std::string& input_path,
+                                                                  const std::string& output_path,
+                                                                  const VideoFormat& target_format) {
   Context ctx;
   if (const auto result = openInputFile(input_path, ctx); !result.has_value()) {
     return std::unexpected<std::string>(result.error());
   }
 
-  if (const auto result = openOutputFile(output_path, constrant, ctx); !result.has_value()) {
+  if (const auto result = openOutputFile(output_path, target_format, ctx); !result.has_value()) {
     return std::unexpected<std::string>(result.error());
   }
 
@@ -94,10 +94,9 @@ std::expected<VideoFile, std::string> Transcoder::transcode(const std::string& i
   }
 
   freeContext(ctx);
-  return VideoFile{
+  return VideoFileStorage{
     output_path,
-    constrant,
-    VideoMetaData{},
+    target_format
   };
 }
 

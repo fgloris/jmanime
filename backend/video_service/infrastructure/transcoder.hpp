@@ -35,13 +35,18 @@ class Transcoder: public TranscodingService {
   // AV_LOG_DEBUG   = 48
   // AV_LOG_TRACE   = 56
   Transcoder(int loglevel = AV_LOG_ERROR);
-  static std::expected<VideoFile, std::string> transcode(const std::string& input_path,
+  std::expected<VideoFileStorage, std::string> transcode(const std::string& input_path,
                                                         const std::string& output_path,
-                                                        const VideoFormat& constrant);
-  std::future<std::expected<VideoFile, std::string>>getTranscodeFuture(const std::string& input_path,
-                                                                      const std::string& output_path,
-                                                                      const VideoFormat& constrant) override {
-    return std::async(std::launch::async, std::bind(&video_service::Transcoder::transcode, input_path, output_path, constrant));}
+                                                        const VideoFormat& target_format); 
+    
+  std::future<std::expected<VideoFileStorage, std::string>> getTranscodeFuture(
+    const std::string& input_path,
+    const std::string& output_base_path,
+    const VideoFormat& target_format
+  ) override {
+    return std::async(std::launch::async, 
+      std::bind(&video_service::Transcoder::transcode, this, input_path, output_base_path, target_format));
+  }
   void setLogLevel(int loglevel);
   struct Context {
     AVFormatContext* input_ctx{nullptr};

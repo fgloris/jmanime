@@ -26,7 +26,7 @@ std::expected<VideoFile, std::string> VideoService::uploadVideo(
   char uuid_str[37];
   uuid_unparse(uuid, uuid_str);
   
-  auto download_path = storage_path_ + "/" + uuid_str + "_original";
+  auto download_path = storage_path_ + "/" + uuid_str + RAW_DOWNLOAD_FILE_SUFFIX;
   auto result = download_service_->download(url, download_path, auth_token,
     [this, uuid_str](float progress) {
       auto video = repository_->findById(uuid_str);
@@ -39,19 +39,26 @@ std::expected<VideoFile, std::string> VideoService::uploadVideo(
     return std::unexpected(result.error());
   }
   
-  auto output_path = storage_path_ + "/" + uuid_str;
-  auto transcoded = transcoding_service_->getTranscodeFuture(download_path, output_path, format).get();
-  if (!transcoded) {
-    return std::unexpected(transcoded.error());
+  static VideoFormat target_format{
+    .format = "mp4",
+    .codec = "libx265",
+  };
+  
+  auto output_base_path = storage_path_ + "/" + uuid_str;
+  auto transfuture = transcoding_service_->getTranscodeFuture(download_path, output_base_path, target_format);
+  auto transresult = transfuture.get();
+  if (!transresult) {
+    return std::unexpected(transresult.error());
   }
   
   VideoFile video;
-  video.id = uuid_str;
-  video.path = output_path;
-  video.format = format;
-  video.metadata.title = title;
-  video.metadata.description = description;
-  video.metadata.url = url;
+  video.uuid = uuid_str;
+  video.storage = transresult.value();
+  video.info.title = title;
+  video.info.description = description;
+  video.info.url = url;
+  video.info.created_at = "";//std::format("{:%Y-%m-%d %H:%M:%S}", std::chrono::system_clock::now());
+  video.info.updated_at = video.info.created_at;
   
   return repository_->save(video);
 }
@@ -90,7 +97,7 @@ std::expected<bool, std::string> VideoService::deleteVideo(
     return std::unexpected("Video not found");
   }
   
-  std::filesystem::remove(video->path);
+  std::filesystem::remove(video->storage.path);
   return repository_->remove(video_id);
 }
 }

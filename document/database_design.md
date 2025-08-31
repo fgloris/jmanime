@@ -1,7 +1,7 @@
 ```mermaid
 erDiagram
   User {
-    int user_id PK
+    string user_id PK
     string user_name
     string user_avatar
     string user_email
@@ -9,35 +9,38 @@ erDiagram
     string user_passwd_salt
   }
 
-  Metadata {
-    int video_id PK
-    float video_fps
-    time video_duration
+  VideoStorage {
+    string video_id PK
+    string video_path
     string video_format
+    string video_codec
+    int video_width
+    int video_height
+    int video_bitrate
   }
   
-  Video {
-    int video_id PK
-    string video_name
-    Metadata video_metadata
-    string storage
+  VideoPresentInfo {
+    string video_id PK
+    string video_title
+    string video_description
+    string video_duration
   }
     
   WatchHistory {
-    int video_id PK
-    int user_id PK
+    string video_id PK
+    string user_id PK
     time watch_time
   }
 
   UploadHistory {
-    int video_id PK
-    int user_id PK
+    string video_id PK
+    string user_id PK
     time upload_time
   }
   
-  Video ||--|| Metadata : has
+  VideoPresentInfo ||--|| VideoStorage : has
   User }o--|| WatchHistory : has
-  WatchHistory ||--o{ Video : has
+  WatchHistory ||--o{ VideoPresentInfo : has
   User }o--|| UploadHistory : has
-  UploadHistory ||--o{ Video : has
+  UploadHistory ||--o{ VideoPresentInfo : has
 ```
