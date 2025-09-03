@@ -60,7 +60,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   
   if (const auto ret = openInputFile(input_path, ctx); !ret.has_value()) {
     return std::unexpected<std::string>(ret.error());
-  }/*
+  }
   else if ((!std::strcmp(ctx.video_dec_ctx->codec->name, config.getFormat().codec.c_str()))
     && contains_format(ctx.input_ctx->iformat->name, "mp4")){
 
@@ -91,7 +91,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
       .path = output_path,
       .format = getVideoFormatFromContext(ctx, "dec")
     };
-  }*/
+  }
 
   auto f = getVideoFormatFromContext(ctx, "dec");
   std::cout<<f.debug()<<std::endl;
