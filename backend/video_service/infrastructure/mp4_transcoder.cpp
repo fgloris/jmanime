@@ -90,6 +90,9 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
     };
   }
 
+  auto f = getVideoFormatFromContext(ctx, "dec");
+  std::cout<<f.debug()<<std::endl;
+
   if (const auto ret = openOutputFile(output_path, ctx, config.getFormat().codec_lib, config.getFormat().codec, 23);
       !ret.has_value()) {
     return std::unexpected<std::string>(ret.error());

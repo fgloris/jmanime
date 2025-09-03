@@ -5,7 +5,7 @@
 int main() {
   video_service::MP4Transcoder transcoder;
   
-  std::string input_path = "/home/ginger/Videos/jmanime/spinning.mp4";
+  std::string input_path = "/home/ginger/Videos/jmanime/far.avi";
   std::string output_path = "/home/ginger/Videos/jmanime/test";
 
   if (!std::filesystem::exists(input_path)) {
