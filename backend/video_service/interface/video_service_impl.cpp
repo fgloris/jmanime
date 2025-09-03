@@ -187,4 +187,48 @@ grpc::Status VideoServiceImpl::DeleteVideo(grpc::ServerContext* context,
   response->set_success(true);
   return grpc::Status::OK;
 }
+
+grpc::Status VideoServiceImpl::ImportLocalVideos(grpc::ServerContext* context,
+                                           const video::ImportLocalVideosRequest* request,
+                                           video::ImportLocalVideosResponse* response) {
+  auto result = service_->importLocalVideos(
+    request->source_dir(),
+    request->auth_token()
+  );
+  
+  if (!result) {
+    response->set_success(false);
+    response->set_message(result.error());
+    return grpc::Status::OK;
+  }
+  
+  response->set_success(true);
+  for (const auto& video_file : result.value()) {
+    auto* video = response->add_videos();
+    video->set_uuid(video_file.uuid);
+    
+    // Set storage info
+    auto* storage = video->mutable_storage();
+    storage->set_path(video_file.storage.path);
+    
+    // Set format info
+    auto* video_format = storage->mutable_format();
+    video_format->set_width(video_file.storage.format.width);
+    video_format->set_height(video_file.storage.format.height);
+    video_format->set_bitrate(video_file.storage.format.bitrate);
+    video_format->set_format(video_file.storage.format.format);
+    video_format->set_codec(video_file.storage.format.codec);
+
+    // Set presentation info
+    auto* info = video->mutable_info();
+    info->set_title(video_file.info.title);
+    info->set_description(video_file.info.description);
+    info->set_url(video_file.info.url);
+    info->set_created_at(video_file.info.created_at);
+    info->set_updated_at(video_file.info.updated_at);
+    info->set_duration(video_file.info.duration);
+  }
+  
+  return grpc::Status::OK;
+}
 }

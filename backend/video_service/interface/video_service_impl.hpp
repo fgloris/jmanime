@@ -31,6 +31,10 @@ public:
   grpc::Status DeleteVideo(grpc::ServerContext* context,
                           const video::DeleteVideoRequest* request,
                           video::DeleteVideoResponse* response) override;
+
+  grpc::Status ImportLocalVideos(grpc::ServerContext* context,
+                             const video::ImportLocalVideosRequest* request,
+                             video::ImportLocalVideosResponse* response) override;
 private:
   std::shared_ptr<VideoService> service_;
 };

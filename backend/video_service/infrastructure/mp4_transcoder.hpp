@@ -23,7 +23,8 @@ extern "C" {
 }
 
 namespace video_service {
-class Transcoder: public TranscodingService {
+// 专门用于高质量MP4+H265编码的转码器
+class MP4Transcoder: public TranscodingService {
   public:
   // AV_LOG_QUIET   = -8
   // AV_LOG_PANIC   =  0
@@ -34,18 +35,20 @@ class Transcoder: public TranscodingService {
   // AV_LOG_VERBOSE = 40
   // AV_LOG_DEBUG   = 48
   // AV_LOG_TRACE   = 56
-  Transcoder(int loglevel = AV_LOG_ERROR);
-  std::expected<VideoFileStorage, std::string> transcode(const std::string& input_path,
-                                                        const std::string& output_path,
-                                                        const VideoFormat& target_format); 
+  MP4Transcoder(int loglevel = AV_LOG_ERROR);
+
+  std::expected<VideoFileStorage, std::string> transcode(
+    const std::string& input_path,
+    const std::string& output_base_path
+  ); 
     
   std::future<std::expected<VideoFileStorage, std::string>> getTranscodeFuture(
     const std::string& input_path,
     const std::string& output_base_path,
-    const VideoFormat& target_format
+    const VideoFormat& /* ignored_format */
   ) override {
     return std::async(std::launch::async, 
-      std::bind(&video_service::Transcoder::transcode, this, input_path, output_base_path, target_format));
+      std::bind(&video_service::MP4Transcoder::transcode, this, input_path, output_base_path));
   }
   void setLogLevel(int loglevel);
   struct Context {
@@ -60,9 +63,9 @@ class Transcoder: public TranscodingService {
   };
 private:
   static std::expected<bool, std::string> openInputFile(const std::string& output_path, Context& ctx);
-  static std::expected<bool, std::string> openOutputFile(const std::string& output_path, const VideoFormat& format, Context& ctx);
+  static std::expected<VideoFormat, std::string> openOutputFile(const std::string& output_path, Context& ctx);
   static std::expected<bool, std::string> initVideoDecoder(Context& ctx);
-  static std::expected<bool, std::string> initVideoEncoder(const VideoFormat& format, Context& ctx);
+  static std::expected<VideoFormat, std::string> initVideoEncoder(Context& ctx);
   static void freeContext(Context& ctx);
 };
 

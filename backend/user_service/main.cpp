@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     builder.RegisterService(&service);
     
     std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << server_address << std::endl;
+    std::cout << "Server listening on " << server_address.str() << std::endl;
 
     server->Wait();
     return 0;

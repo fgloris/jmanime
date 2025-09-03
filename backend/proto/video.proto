@@ -9,6 +9,7 @@ service VideoService {
   rpc GetVideoInfo(GetVideoInfoRequest) returns (GetVideoInfoResponse);
   rpc ListVideos(ListVideosRequest) returns (ListVideosResponse);
   rpc DeleteVideo(DeleteVideoRequest) returns (DeleteVideoResponse);
+  rpc ImportLocalVideos(ImportLocalVideosRequest) returns (ImportLocalVideosResponse);
 }
 
 message VideoFormat {
@@ -103,4 +104,15 @@ message DeleteVideoRequest {
 message DeleteVideoResponse {
   bool success = 1;
   string message = 2;
+}
+
+message ImportLocalVideosRequest {
+  string auth_token = 1;
+  string source_dir = 2;
+}
+
+message ImportLocalVideosResponse {
+  bool success = 1;
+  string message = 2;
+  repeated VideoFile videos = 3;
 }

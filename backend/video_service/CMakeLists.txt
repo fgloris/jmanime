@@ -53,3 +53,30 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   OpenSSL::Crypto
   uuid
 )
+
+add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS})
+
+target_include_directories(${PROJECT_NAME}_client PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${Protobuf_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_BINARY_DIR}
+  ${PROTO_GEN_DIR}
+)
+
+target_link_libraries(${PROJECT_NAME}_client PRIVATE
+  protobuf::libprotobuf
+  gRPC::grpc
+  gRPC::grpc++
+)
+
+# Add transcoder test executable
+add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp)
+
+target_include_directories(test_transcoder PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${FFMPEG_INCLUDE_DIRS}
+)
+
+target_link_libraries(test_transcoder PRIVATE
+  ${FFMPEG_LIBRARIES}
+)

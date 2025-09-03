@@ -1,5 +1,7 @@
 #include "video_service.hpp"
-#include <uuid.h>
+#include "common/config.hpp"
+#include "domain/video.hpp"
+#include <uuid/uuid.h>
 #include <filesystem>
 
 namespace video_service {
@@ -26,21 +28,17 @@ std::expected<VideoFile, std::string> VideoService::uploadVideo(
   uuid_unparse(uuid, uuid_str);
   
   auto download_path = storage_path_ + "/" + uuid_str + RAW_DOWNLOAD_FILE_SUFFIX;
-  auto result = download_service_->download(url, download_path, auth_token,
-    [this, uuid_str](float progress) {
-      auto video = repository_->findById(uuid_str);
-      if (video) {
-        repository_->save(video.value());
-      }
-    });
+  auto result = download_service_->download(url, download_path, auth_token);
     
   if (!result) {
     return std::unexpected(result.error());
   }
+
+  const auto& format_cfg = config::Config::getInstance().getFormat();
   
   static VideoFormat target_format{
-    .format = "mp4",
-    .codec = "libx265",
+    .format = format_cfg.format,
+    .codec = format_cfg.codec,
   };
   
   auto output_base_path = storage_path_ + "/" + uuid_str;
@@ -112,4 +110,116 @@ std::expected<bool, std::string> VideoService::deleteVideo(
   std::filesystem::remove(video->storage.path);
   return repository_->remove(video_id);
 }
+
+std::expected<VideoFile, std::string> VideoService::importLocalVideo(
+  const std::filesystem::path& source_path,
+  const std::string& auth_token
+) {
+  // 检查文件是否存在
+  if (!std::filesystem::exists(source_path)) {
+    return std::unexpected("Source file does not exist: " + source_path.string());
+  }
+
+  // 生成新的UUID
+  uuid_t uuid;
+  uuid_generate(uuid);
+  char uuid_str[37];
+  uuid_unparse(uuid, uuid_str);
+
+  // 构建目标路径
+  auto extension = source_path.extension();
+  auto target_path = std::filesystem::path(storage_path_) / 
+                    std::filesystem::path(std::string(uuid_str) + RAW_DOWNLOAD_FILE_SUFFIX + extension.string());
+
+  try {
+    // 复制文件到存储目录
+    std::filesystem::copy_file(source_path, target_path, 
+                             std::filesystem::copy_options::overwrite_existing);
+  } catch (const std::filesystem::filesystem_error& e) {
+    return std::unexpected("Failed to copy file: " + std::string(e.what()));
+  }
+
+  // 获取基本文件信息
+  auto file_size = std::filesystem::file_size(source_path);
+  
+  // 使用原始文件名作为标题
+  std::string title = source_path.stem().string();
+
+  const auto& format_cfg = config::Config::getInstance().getFormat();
+  
+  static VideoFormat target_format{
+    .format = format_cfg.format,
+    .codec = format_cfg.codec,
+  };
+  
+  // 转码文件
+  auto output_base_path = storage_path_ + "/" + uuid_str;
+  auto transfuture = transcoding_service_->getTranscodeFuture(target_path.string(), output_base_path, target_format);
+  auto transresult = transfuture.get();
+  if (!transresult) {
+    // 清理中间文件
+    std::filesystem::remove(target_path);
+    return std::unexpected(transresult.error());
+  }
+
+  VideoFile video;
+  video.uuid = uuid_str;
+  video.storage = transresult.value();
+  video.info.title = title;
+  video.info.description = "Imported from local file: " + source_path.filename().string();
+  video.info.url = "local://" + source_path.filename().string();
+  video.info.created_at = "";//std::format("{:%Y-%m-%d %H:%M:%S}", std::chrono::system_clock::now());
+  video.info.updated_at = video.info.created_at;
+
+  // 保存到数据库
+  return repository_->save(video);
+}
+
+std::expected<std::vector<VideoFile>, std::string> VideoService::importLocalVideos(
+  const std::string& source_dir,
+  const std::string& auth_token
+) {
+  std::vector<VideoFile> imported_videos;
+  std::vector<std::string> errors;
+
+  try {
+    // 检查源目录是否存在
+    if (!std::filesystem::exists(source_dir)) {
+      return std::unexpected("Source directory does not exist: " + source_dir);
+    }
+
+    // 遍历目录中的所有文件
+    for (const auto& entry : std::filesystem::directory_iterator(source_dir)) {
+      // 只处理视频文件
+      auto extension = entry.path().extension();
+      if (extension == ".mp4" || extension == ".mkv" || extension == ".avi" || 
+          extension == ".mov" || extension == ".wmv" || extension == ".flv") {
+        
+        auto result = importLocalVideo(entry.path(), auth_token);
+        if (result) {
+          imported_videos.push_back(result.value());
+        } else {
+          errors.push_back("Failed to import " + entry.path().string() + 
+                          ": " + result.error());
+        }
+      }
+    }
+
+    if (!errors.empty()) {
+      std::string error_message = "Some files failed to import:\n";
+      for (const auto& err : errors) {
+        error_message += err + "\n";
+      }
+      return std::unexpected(error_message);
+    }
+
+    return imported_videos;
+
+  } catch (const std::filesystem::filesystem_error& e) {
+    return std::unexpected("Filesystem error: " + std::string(e.what()));
+  } catch (const std::exception& e) {
+    return std::unexpected("Unexpected error: " + std::string(e.what()));
+  }
+}
+
 }

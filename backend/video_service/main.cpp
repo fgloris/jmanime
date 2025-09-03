@@ -2,7 +2,7 @@
 #include "infrastructure/mysql_video_repository.hpp"
 #include "infrastructure/downloader.hpp"
 #include "infrastructure/hls_server.hpp"
-#include "infrastructure/transcoder.hpp"
+#include "infrastructure/mp4_transcoder.hpp"
 #include "common/config.hpp"
 #include <grpcpp/server_builder.h>
 #include <filesystem>
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     );
   
   std::shared_ptr<video_service::TranscodingService> transcoding_service = 
-    std::make_shared<video_service::Transcoder>();
+    std::make_shared<video_service::MP4Transcoder>();
   
   auto video_service = std::make_shared<video_service::VideoService>(
     repository, download_service, streaming_service, transcoding_service, storage_path

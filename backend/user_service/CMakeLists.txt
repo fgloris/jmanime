@@ -40,6 +40,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   ${UUID_LIBRARIES}
   ${MYSQLCLIENT_LIBRARIES}
   jwt-cpp
+  uuid
 )
 
 add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS})

@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <expected>
+#include <filesystem>
 #include "domain/video_respository.hpp"
 #include "domain/download_service.hpp"
 #include "domain/transcoding_service.hpp"
@@ -48,8 +49,19 @@ public:
     const std::string& auth_token,
     const std::string& video_id
   );
-  
+
+  // 导入本地文件夹中的视频
+  std::expected<std::vector<VideoFile>, std::string> importLocalVideos(
+    const std::string& source_dir,
+    const std::string& auth_token
+  );
+
 private:
+  // 导入单个视频文件
+  std::expected<VideoFile, std::string> importLocalVideo(
+    const std::filesystem::path& source_path,
+    const std::string& auth_token
+  );
   std::shared_ptr<VideoRepository> repository_;
   std::shared_ptr<DownloadService> download_service_;
   std::shared_ptr<StreamingService> streaming_service_;
