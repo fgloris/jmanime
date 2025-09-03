@@ -58,9 +58,10 @@ class MP4Transcoder: public TranscodingService {
     AVCodecContext* video_dec_ctx{nullptr};
     AVCodecContext* video_enc_ctx{nullptr};
     AVStream* video_stream{nullptr};
-    AVFrame* frame{nullptr};
-    AVPacket* packet{nullptr};
+    AVStream* audio_stream{nullptr};
     int video_stream_idx{-1};
+    int audio_stream_idx{-1};
+    int audio_stream_idx_out{-1};
   };
 private:
   static std::expected<void, std::string> openInputFile(const std::string& output_path, Context& ctx);

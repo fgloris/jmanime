@@ -43,7 +43,7 @@ std::expected<VideoFile, std::string> MysqlVideoRepository::save(const VideoFile
     video.storage.format.height,
     video.storage.format.bitrate,
     video.storage.format.format,
-    video.storage.format.codec,
+    video.storage.format.video_codec,
     video.info.duration,
     video.info.title,
     video.info.description,
@@ -82,7 +82,7 @@ std::expected<VideoFile, std::string> MysqlVideoRepository::findById(const std::
   video.storage.format.height = std::stoi(row[3]);
   video.storage.format.bitrate = std::stoi(row[4]);
   video.storage.format.format = row[5];
-  video.storage.format.codec = row[6];
+  video.storage.format.video_codec = row[6];
   video.info.duration = std::stoi(row[7]);
   video.info.title = row[8];
   video.info.description = row[9];

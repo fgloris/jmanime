@@ -35,7 +35,7 @@ grpc::Status VideoServiceImpl::UploadVideo(grpc::ServerContext* context,
   format_msg->set_height(result->storage.format.height);
   format_msg->set_bitrate(result->storage.format.bitrate);
   format_msg->set_format(result->storage.format.format);
-  format_msg->set_codec(result->storage.format.codec);
+  format_msg->set_codec(result->storage.format.video_codec);
 
   // Set presentation info
   auto* info = video->mutable_info();
@@ -96,7 +96,7 @@ grpc::Status VideoServiceImpl::GetVideoInfo(grpc::ServerContext* context,
   video_format->set_height(result->storage.format.height);
   video_format->set_bitrate(result->storage.format.bitrate);
   video_format->set_format(result->storage.format.format);
-  video_format->set_codec(result->storage.format.codec);
+  video_format->set_codec(result->storage.format.video_codec);
 
   // Set presentation info
   auto* info = video->mutable_info();
@@ -136,7 +136,7 @@ grpc::Status VideoServiceImpl::ListVideos(grpc::ServerContext* context,
     video_format->set_height(video_file.storage.format.height);
     video_format->set_bitrate(video_file.storage.format.bitrate);
     video_format->set_format(video_file.storage.format.format);
-    video_format->set_codec(video_file.storage.format.codec);
+    video_format->set_codec(video_file.storage.format.video_codec);
 
     // Set presentation info
     auto* info = video->mutable_info();
@@ -217,7 +217,7 @@ grpc::Status VideoServiceImpl::ImportLocalVideos(grpc::ServerContext* context,
     video_format->set_height(video_file.storage.format.height);
     video_format->set_bitrate(video_file.storage.format.bitrate);
     video_format->set_format(video_file.storage.format.format);
-    video_format->set_codec(video_file.storage.format.codec);
+    video_format->set_codec(video_file.storage.format.video_codec);
 
     // Set presentation info
     auto* info = video->mutable_info();

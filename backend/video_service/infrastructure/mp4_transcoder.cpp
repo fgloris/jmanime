@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <cstring>
 #include <expected>
+#include <libavcodec/packet.h>
+#include <libavutil/avutil.h>
 #include <libavutil/log.h>
 #include <string>
 #include <sstream>
@@ -58,7 +60,8 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   
   if (const auto ret = openInputFile(input_path, ctx); !ret.has_value()) {
     return std::unexpected<std::string>(ret.error());
-  }else if ((!std::strcmp(ctx.video_dec_ctx->codec->name, config.getFormat().codec.c_str()))
+  }/*
+  else if ((!std::strcmp(ctx.video_dec_ctx->codec->name, config.getFormat().codec.c_str()))
     && contains_format(ctx.input_ctx->iformat->name, "mp4")){
 
     avcodec_free_context(&ctx.video_enc_ctx);
@@ -88,12 +91,12 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
       .path = output_path,
       .format = getVideoFormatFromContext(ctx, "dec")
     };
-  }
+  }*/
 
   auto f = getVideoFormatFromContext(ctx, "dec");
   std::cout<<f.debug()<<std::endl;
 
-  if (const auto ret = openOutputFile(output_path, ctx, config.getFormat().codec_lib, config.getFormat().codec, 23);
+  if (const auto ret = openOutputFile(output_path, ctx, config.getFormat().codec_lib, config.getFormat().codec, config.getFormat().crf);
       !ret.has_value()) {
     return std::unexpected<std::string>(ret.error());
   }
@@ -105,33 +108,40 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   int64_t total_frames = ctx.video_stream->nb_frames;
   int64_t processed_frames = 0;
 
+  AVFrame* frame = av_frame_alloc();
+  AVPacket* packet = av_packet_alloc();
+
+  if (!frame || !packet) {
+    return std::unexpected<std::string>("Could not allocate frame or packet");
+  }
+
   while (true) {
-    if (av_read_frame(ctx.input_ctx, ctx.packet) < 0) {
+    if (av_read_frame(ctx.input_ctx, packet) < 0) {
       break;
     }
 
-    if (ctx.packet->stream_index == ctx.video_stream_idx) {
+    if (packet->stream_index == ctx.video_stream_idx) {
       // Send packet to decoder
-      if (avcodec_send_packet(ctx.video_dec_ctx, ctx.packet) < 0) {
-        av_packet_unref(ctx.packet);
+      if (avcodec_send_packet(ctx.video_dec_ctx, packet) < 0) {
+        av_packet_unref(packet);
         return std::unexpected<std::string>("Error sending packet to decoder");
       }
 
       while (true) {
         
-        if (int ret = avcodec_receive_frame(ctx.video_dec_ctx, ctx.frame); 
+        if (int ret = avcodec_receive_frame(ctx.video_dec_ctx, frame); 
             ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
           break;
         } else if (ret < 0) {
           return std::unexpected<std::string>("Error receiving frame from decoder");
         }
         
-        if (avcodec_send_frame(ctx.video_enc_ctx, ctx.frame) < 0) {
+        if (avcodec_send_frame(ctx.video_enc_ctx, frame) < 0) {
           return std::unexpected<std::string>("Error sending frame to encoder");
         }
 
         while (true) {
-          if (int ret = avcodec_receive_packet(ctx.video_enc_ctx, ctx.packet);
+          if (int ret = avcodec_receive_packet(ctx.video_enc_ctx, packet);
               ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             break;
           } else if (ret < 0) {
@@ -139,28 +149,53 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
           }
 
           // Write encoded packet
-          if (av_interleaved_write_frame(ctx.output_ctx, ctx.packet) < 0) {
+          if (av_interleaved_write_frame(ctx.output_ctx, packet) < 0) {
             return std::unexpected<std::string>("Error writing output packet");
           }
         }
 
         processed_frames++;
       }
+    }else if (packet->stream_index == ctx.audio_stream_idx){
+      AVPacket* audio_packet = av_packet_clone(packet);
+      if (!audio_packet) {
+          av_packet_unref(packet);
+          return std::unexpected<std::string>("Failed to clone audio packet");
+      }
+      
+      // 设置正确的输出流索引
+      audio_packet->stream_index = ctx.audio_stream_idx_out;
+      
+      // 调整时间戳到输出流的时间基
+      av_packet_rescale_ts(audio_packet, 
+                          ctx.input_ctx->streams[ctx.audio_stream_idx]->time_base,
+                          ctx.output_ctx->streams[ctx.audio_stream_idx_out]->time_base);
+      
+      // 写入音频包
+      if (av_interleaved_write_frame(ctx.output_ctx, audio_packet) < 0) {
+          av_packet_free(&audio_packet);
+          return std::unexpected<std::string>("Error writing audio packet");
+      }
+      
+      av_packet_free(&audio_packet);
+      //if (avcodec_send_packet(ctx.video_dec_ctx, packet) < 0) {
+      //  av_packet_unref(packet);
+      //  return std::unexpected<std::string>("Error sending packet to decoder");
+      //}
     }
-    av_packet_unref(ctx.packet);
+    av_packet_unref(packet);
   }
-
   // Flush encoders
   avcodec_send_frame(ctx.video_enc_ctx, nullptr);
   while (true) {
     
-    if (int ret = avcodec_receive_packet(ctx.video_enc_ctx, ctx.packet); 
+    if (int ret = avcodec_receive_packet(ctx.video_enc_ctx, packet); 
         ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       break;
     }else if (ret < 0) {
       return std::unexpected<std::string>("Error flushing encoder");
     }
-    if (av_interleaved_write_frame(ctx.output_ctx, ctx.packet) < 0) {
+    if (av_interleaved_write_frame(ctx.output_ctx, packet) < 0) {
       return std::unexpected<std::string>("Error writing output packet during flush");
     }
   }
@@ -171,9 +206,11 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   }
 
   VideoFormat fmt = getVideoFormatFromContext(ctx, "enc");
-  fmt.crf = 23;
+  fmt.crf = config.getFormat().crf;
 
   freeContext(ctx);
+  av_frame_free(&frame);
+  av_packet_free(&packet);
   return VideoFileStorage{
     .path = output_path,
     .format = fmt
@@ -192,16 +229,14 @@ std::expected<void, std::string> MP4Transcoder::openInputFile(const std::string&
     return std::unexpected<std::string>("Could not find video stream");
   }
   ctx.video_stream = ctx.input_ctx->streams[ctx.video_stream_idx];
-
   
-  if (const auto result = initVideoDecoder(ctx); !result.has_value()) {
-    return std::unexpected<std::string>(result.error());
+  ctx.audio_stream_idx = av_find_best_stream(ctx.input_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+  if (ctx.audio_stream_idx >= 0){
+    ctx.audio_stream = ctx.input_ctx->streams[ctx.audio_stream_idx];
   }
 
-  ctx.frame = av_frame_alloc();
-  ctx.packet = av_packet_alloc();
-  if (!ctx.frame || !ctx.packet) {
-    return std::unexpected<std::string>("Could not allocate frame or packet");
+  if (const auto result = initVideoDecoder(ctx); !result.has_value()) {
+    return std::unexpected<std::string>(result.error());
   }
   return {};
 }
@@ -218,21 +253,39 @@ std::expected<void, std::string> MP4Transcoder::openOutputFile(const std::string
     return std::unexpected<std::string>("Could not create output context");
   }
 
-  AVStream* out_stream = avformat_new_stream(ctx.output_ctx, nullptr);
-  if (!out_stream) {
+  AVStream* out_video_stream = avformat_new_stream(ctx.output_ctx, nullptr);
+  if (!out_video_stream) {
     return std::unexpected<std::string>("Failed to allocate output stream");
   }
 
+  if (ctx.audio_stream_idx >= 0) {
+    AVStream* out_audio_stream = avformat_new_stream(ctx.output_ctx, NULL);
+    
+    if (!out_audio_stream) {
+      return std::unexpected<std::string>("Failed to allocate output audio stream");
+    }
+    
+    // 复制编解码器参数, codecpar = codec parameter
+    if (avcodec_parameters_copy(out_audio_stream->codecpar, ctx.audio_stream->codecpar) < 0) {
+      return std::unexpected<std::string>("Failed to copy audio codec parameters");
+    }
+    
+    out_audio_stream->time_base = ctx.audio_stream->time_base;
+    
+    // 标记为流复制模式
+    out_audio_stream->codecpar->codec_tag = 0;
+    ctx.audio_stream_idx_out = out_audio_stream->index;
+  }
   
   if (const auto ret = initVideoEncoder(ctx, codec_lib, target_codec, crf); !ret.has_value()) {
     return std::unexpected<std::string>(ret.error());
   }
 
-  if (avcodec_parameters_from_context(out_stream->codecpar, ctx.video_enc_ctx) < 0) {
+  if (avcodec_parameters_from_context(out_video_stream->codecpar, ctx.video_enc_ctx) < 0) {
     return std::unexpected<std::string>("Failed to copy encoder parameters to output stream");
   }
 
-  out_stream->time_base = ctx.video_enc_ctx->time_base;
+  out_video_stream->time_base = ctx.video_enc_ctx->time_base;
 
   if (!(ctx.output_ctx->oformat->flags & AVFMT_NOFILE)) {
     if (avio_open(&ctx.output_ctx->pb, output_path.c_str(), AVIO_FLAG_WRITE) < 0) {
@@ -276,6 +329,39 @@ std::expected<void, std::string> MP4Transcoder::initVideoEncoder(Context& ctx, c
   ctx.video_enc_ctx->sample_aspect_ratio = ctx.video_dec_ctx->sample_aspect_ratio;
   
   av_opt_set_int(ctx.video_enc_ctx->priv_data, "crf", crf, 0);
+  av_opt_set(ctx.video_enc_ctx->priv_data, "preset", "medium", 0);
+  av_opt_set(ctx.video_enc_ctx->priv_data, "tune", "film", 0);
+  
+  // 运动估计和帧间预测优化
+  av_opt_set(ctx.video_enc_ctx->priv_data, "me", "hex", 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "subme", 7, 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "refs", 3, 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "mixed-refs", 1, 0);
+  
+  // B帧优化
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "bframes", 3, 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "b-adapt", 1, 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "b-pyramid", 2, 0);
+  
+  // 其他优化
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "trellis", 1, 0);
+  av_opt_set(ctx.video_enc_ctx->priv_data, "deblock", "1:0:0", 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "mbtree", 1, 0);
+  
+  // 心理视觉优化
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "psy", 1, 0);
+  av_opt_set(ctx.video_enc_ctx->priv_data, "psy-rd", "1.00:0.00", 0);
+  av_opt_set(ctx.video_enc_ctx->priv_data, "aq-mode", "1", 0);
+  av_opt_set(ctx.video_enc_ctx->priv_data, "aq-strength", "1.00", 0);
+
+  if (ctx.video_dec_ctx->profile != FF_PROFILE_UNKNOWN) {
+    ctx.video_enc_ctx->profile = ctx.video_dec_ctx->profile;
+  }
+  
+  ctx.video_enc_ctx->color_range = ctx.video_dec_ctx->color_range;
+  ctx.video_enc_ctx->color_primaries = ctx.video_dec_ctx->color_primaries;
+  ctx.video_enc_ctx->color_trc = ctx.video_dec_ctx->color_trc;
+  ctx.video_enc_ctx->colorspace = ctx.video_dec_ctx->colorspace;
 
   AVRational input_framerate = av_guess_frame_rate(ctx.input_ctx, ctx.video_stream, NULL);
   if (input_framerate.num == 0 || input_framerate.den == 0) {
@@ -308,7 +394,7 @@ VideoFormat MP4Transcoder::getVideoFormatFromContext(const MP4Transcoder::Contex
       .bitrate = ctx.video_enc_ctx->bit_rate,
       .pix_fmt = ctx.video_enc_ctx->pix_fmt,
       .format = "mp4",
-      .codec = ctx.video_enc_ctx->codec->name
+      .video_codec = ctx.video_enc_ctx->codec->name
     };
   }else if ((!std::strcmp(enc_or_dec.c_str(), "dec"))
       && ctx.video_dec_ctx != nullptr){
@@ -318,7 +404,7 @@ VideoFormat MP4Transcoder::getVideoFormatFromContext(const MP4Transcoder::Contex
       .bitrate = ctx.video_dec_ctx->bit_rate,
       .pix_fmt = ctx.video_dec_ctx->pix_fmt,
       .format = "mp4",
-      .codec = ctx.video_dec_ctx->codec->name
+      .video_codec = ctx.video_dec_ctx->codec->name
     };
   }
   return VideoFormat{};
@@ -329,11 +415,9 @@ void MP4Transcoder::freeContext(Context& ctx) {
   avcodec_free_context(&ctx.video_enc_ctx);
   avformat_close_input(&ctx.input_ctx);
   if (ctx.output_ctx && !(ctx.output_ctx->oformat->flags & AVFMT_NOFILE)) {
-      avio_closep(&ctx.output_ctx->pb);
+    avio_closep(&ctx.output_ctx->pb);
   }
   avformat_free_context(ctx.output_ctx);
-  av_frame_free(&ctx.frame);
-  av_packet_free(&ctx.packet);
 }
 
 } // namespace video_service

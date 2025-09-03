@@ -36,13 +36,8 @@ std::expected<VideoFile, std::string> VideoService::uploadVideo(
 
   const auto& format_cfg = config::Config::getInstance().getFormat();
   
-  static VideoFormat target_format{
-    .format = format_cfg.format,
-    .codec = format_cfg.codec,
-  };
-  
   auto output_base_path = storage_path_ + "/" + uuid_str;
-  auto transfuture = transcoding_service_->getTranscodeFuture(download_path, output_base_path, target_format);
+  auto transfuture = transcoding_service_->getTranscodeFuture(download_path, output_base_path, VideoFormat{});
   auto transresult = transfuture.get();
   if (!transresult) {
     return std::unexpected(transresult.error());
@@ -147,14 +142,9 @@ std::expected<VideoFile, std::string> VideoService::importLocalVideo(
 
   const auto& format_cfg = config::Config::getInstance().getFormat();
   
-  static VideoFormat target_format{
-    .format = format_cfg.format,
-    .codec = format_cfg.codec,
-  };
-  
   // 转码文件
   auto output_base_path = storage_path_ + "/" + uuid_str;
-  auto transfuture = transcoding_service_->getTranscodeFuture(target_path.string(), output_base_path, target_format);
+  auto transfuture = transcoding_service_->getTranscodeFuture(target_path.string(), output_base_path, VideoFormat{});
   auto transresult = transfuture.get();
   if (!transresult) {
     // 清理中间文件
