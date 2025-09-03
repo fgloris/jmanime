@@ -2,6 +2,7 @@
 
 // project
 #include "domain/transcoding_service.hpp"
+#include "domain/video.hpp"
 
 // std
 #include <future>
@@ -62,10 +63,19 @@ class MP4Transcoder: public TranscodingService {
     int video_stream_idx{-1};
   };
 private:
-  static std::expected<bool, std::string> openInputFile(const std::string& output_path, Context& ctx);
-  static std::expected<VideoFormat, std::string> openOutputFile(const std::string& output_path, Context& ctx);
-  static std::expected<bool, std::string> initVideoDecoder(Context& ctx);
-  static std::expected<VideoFormat, std::string> initVideoEncoder(Context& ctx);
+  static std::expected<void, std::string> openInputFile(const std::string& output_path, Context& ctx);
+  static std::expected<void, std::string> initVideoDecoder(Context& ctx);
+  static std::expected<void, std::string> openOutputFile(const std::string& output_path, 
+                                                               Context& ctx, const std::string& codec_lib, 
+                                                               const std::string& target_codec,
+                                                               int crf
+                                                              );
+  static std::expected<void, std::string> initVideoEncoder(Context& ctx, 
+                                                                 const std::string& codec_lib,
+                                                                 const std::string& target_codec,
+                                                                 int crf
+                                                                );
+  static VideoFormat getVideoFormatFromContext(const Context& ctx, const std::string& enc_or_dec);
   static void freeContext(Context& ctx);
 };
 

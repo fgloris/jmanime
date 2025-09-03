@@ -15,7 +15,7 @@ struct VideoFormat {
   long bitrate{0};
   enum AVPixelFormat pix_fmt;
   std::string format;  // container format like "mp4", "mkv"
-  std::string codec;   // video codec like "h264", "h265", "libx264"
+  std::string codec;   // video codec like "h264", "h265". "libx264" is a library name that performs h264 encoding.
   std::string debug(){
     return std::format("format:{},codec:{},width:{},height:{},resolution:{},crf:{},bitrate:{},pix_fmt:{}",
       format,codec,width,height,width*height,crf,bitrate,av_get_pix_fmt_name(pix_fmt));

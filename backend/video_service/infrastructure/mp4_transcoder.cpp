@@ -1,11 +1,14 @@
 #include "mp4_transcoder.hpp"
 #include "domain/video.hpp"
 #include "common/config.hpp"
+#include <cstddef>
 #include <cstring>
+#include <expected>
 #include <libavutil/log.h>
 #include <string>
 #include <sstream>
 #include <filesystem>
+#include <iostream>
 
 namespace video_service {
 
@@ -48,13 +51,16 @@ void MP4Transcoder::setLogLevel(int loglevel) {
 }
 
 std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std::string& input_path, 
-                                                                        const std::string& output_base_path) {
+                                                                     const std::string& output_base_path) {
   Context ctx;
   std::string output_path = output_base_path + ".mp4";
-  const auto skip = openInputFile(input_path, ctx);
-  if (!skip.has_value()) {
-    return std::unexpected<std::string>(skip.error());
-  }else if (skip){
+  auto& config = config::Config::getInstance();
+  
+  if (const auto ret = openInputFile(input_path, ctx); !ret.has_value()) {
+    return std::unexpected<std::string>(ret.error());
+  }else if ((!std::strcmp(ctx.video_dec_ctx->codec->name, config.getFormat().codec.c_str()))
+    && contains_format(ctx.input_ctx->iformat->name, "mp4")){
+
     avcodec_free_context(&ctx.video_enc_ctx);
     avformat_close_input(&ctx.input_ctx);
     try {
@@ -80,20 +86,13 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
     }
     return VideoFileStorage{
       .path = output_path,
-      .format = VideoFormat{
-        .width = ctx.video_dec_ctx->width,
-        .height = ctx.video_dec_ctx->height,
-        .bitrate = ctx.video_dec_ctx->bit_rate,
-        .pix_fmt = ctx.video_dec_ctx->pix_fmt,
-        .format = "mp4",
-        .codec = config::Config::getInstance().getFormat().codec.c_str()
-      }
+      .format = getVideoFormatFromContext(ctx, "dec")
     };
   }
 
-  const auto result_format = openOutputFile(output_path, ctx);
-  if (!result_format.has_value()) {
-    return std::unexpected<std::string>(result_format.error());
+  if (const auto ret = openOutputFile(output_path, ctx, config.getFormat().codec_lib, config.getFormat().codec, 23);
+      !ret.has_value()) {
+    return std::unexpected<std::string>(ret.error());
   }
 
   if (avformat_write_header(ctx.output_ctx, nullptr) < 0) {
@@ -168,14 +167,17 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
     return std::unexpected<std::string>("Failed to write trailer");
   }
 
+  VideoFormat fmt = getVideoFormatFromContext(ctx, "enc");
+  fmt.crf = 23;
+
   freeContext(ctx);
   return VideoFileStorage{
     .path = output_path,
-    .format = result_format.value()
+    .format = fmt
   };
 }
 
-std::expected<bool, std::string> MP4Transcoder::openInputFile(const std::string& input_path, MP4Transcoder::Context& ctx) {
+std::expected<void, std::string> MP4Transcoder::openInputFile(const std::string& input_path, MP4Transcoder::Context& ctx) {
   if (avformat_open_input(&(ctx.input_ctx), input_path.c_str(), nullptr, nullptr) < 0) {
     return std::unexpected<std::string>("Could not open input file");
   }
@@ -188,21 +190,25 @@ std::expected<bool, std::string> MP4Transcoder::openInputFile(const std::string&
   }
   ctx.video_stream = ctx.input_ctx->streams[ctx.video_stream_idx];
 
-  auto skip = initVideoDecoder(ctx);
-  if (!skip.has_value()) {
-    return std::unexpected<std::string>(skip.error());
-  }else if (skip){
-    return true;
+  
+  if (const auto result = initVideoDecoder(ctx); !result.has_value()) {
+    return std::unexpected<std::string>(result.error());
   }
+
   ctx.frame = av_frame_alloc();
   ctx.packet = av_packet_alloc();
   if (!ctx.frame || !ctx.packet) {
     return std::unexpected<std::string>("Could not allocate frame or packet");
   }
-  return false;
+  return {};
 }
 
-std::expected<VideoFormat, std::string> MP4Transcoder::openOutputFile(const std::string& output_path, MP4Transcoder::Context& ctx) {
+std::expected<void, std::string> MP4Transcoder::openOutputFile(const std::string& output_path, 
+                                                                     MP4Transcoder::Context& ctx, 
+                                                                     const std::string& codec_lib, 
+                                                                     const std::string& target_codec,
+                                                                     int crf
+                                                                    ) {
   int ret = avformat_alloc_output_context2(&ctx.output_ctx, nullptr, 
                                           "mp4", output_path.c_str());
   if (!ctx.output_ctx) {
@@ -214,9 +220,9 @@ std::expected<VideoFormat, std::string> MP4Transcoder::openOutputFile(const std:
     return std::unexpected<std::string>("Failed to allocate output stream");
   }
 
-  const auto result = initVideoEncoder(ctx);
-  if ( !result.has_value()) {
-    return std::unexpected<std::string>(result.error());
+  
+  if (const auto ret = initVideoEncoder(ctx, codec_lib, target_codec, crf); !ret.has_value()) {
+    return std::unexpected<std::string>(ret.error());
   }
 
   if (avcodec_parameters_from_context(out_stream->codecpar, ctx.video_enc_ctx) < 0) {
@@ -230,11 +236,11 @@ std::expected<VideoFormat, std::string> MP4Transcoder::openOutputFile(const std:
       return std::unexpected<std::string>("Could not open output file");
     }
   }
-  return result.value();
+  return {};
 }
 
 
-std::expected<bool, std::string> MP4Transcoder::initVideoDecoder(Context& ctx) {
+std::expected<void, std::string> MP4Transcoder::initVideoDecoder(Context& ctx) {
   const AVCodec* decoder = avcodec_find_decoder(ctx.video_stream->codecpar->codec_id);
   if (!decoder) {
     return std::unexpected<std::string>("Failed to find decoder");
@@ -248,16 +254,10 @@ std::expected<bool, std::string> MP4Transcoder::initVideoDecoder(Context& ctx) {
   if (avcodec_open2(ctx.video_dec_ctx, decoder, nullptr) < 0) {
     return std::unexpected<std::string>("Failed to open decoder");
   }
-  const auto& format_cfg = config::Config::getInstance().getFormat();
-  if ((!std::strcmp(ctx.video_dec_ctx->codec->name, format_cfg.codec.c_str()))
-    && contains_format(ctx.input_ctx->iformat->name, "mp4")){
-    return true;
-  }
-  return false;
+  return {};
 }
 
-std::expected<VideoFormat, std::string> MP4Transcoder::initVideoEncoder(Context& ctx) {
-  const std::string& codec_lib = config::Config::getInstance().getFormat().codec_lib;
+std::expected<void, std::string> MP4Transcoder::initVideoEncoder(Context& ctx, const std::string& codec_lib, const std::string& target_codec, int crf) {
   const AVCodec* encoder = avcodec_find_encoder_by_name(codec_lib.c_str());
   if (!encoder) {
     return std::unexpected<std::string>("Failed to find encoder: " + codec_lib);
@@ -268,22 +268,19 @@ std::expected<VideoFormat, std::string> MP4Transcoder::initVideoEncoder(Context&
     return std::unexpected<std::string>("Failed to allocate encoder context");
   }
 
-  // 设置分辨率
   ctx.video_enc_ctx->height = ctx.video_dec_ctx->height;
   ctx.video_enc_ctx->width = ctx.video_dec_ctx->width;
   ctx.video_enc_ctx->sample_aspect_ratio = ctx.video_dec_ctx->sample_aspect_ratio;
   
-  av_opt_set_int(ctx.video_enc_ctx->priv_data, "crf", 23, 0);
+  av_opt_set_int(ctx.video_enc_ctx->priv_data, "crf", crf, 0);
 
-  // 设置时基和帧率
   AVRational input_framerate = av_guess_frame_rate(ctx.input_ctx, ctx.video_stream, NULL);
   if (input_framerate.num == 0 || input_framerate.den == 0) {
-    input_framerate = av_make_q(30, 1);  // 默认30fps
+    input_framerate = av_make_q(30, 1);
   }
   ctx.video_enc_ctx->time_base = av_inv_q(input_framerate);
   ctx.video_enc_ctx->framerate = input_framerate;
   
-  // 设置像素格式
   if (is_pix_fmt_supported(encoder, ctx.video_dec_ctx->pix_fmt)){
     ctx.video_enc_ctx->pix_fmt = ctx.video_dec_ctx->pix_fmt;
   }else{
@@ -296,15 +293,32 @@ std::expected<VideoFormat, std::string> MP4Transcoder::initVideoEncoder(Context&
     av_strerror(ret, error, AV_ERROR_MAX_STRING_SIZE);
     return std::unexpected(std::string("Failed to open encoder: ") + error);
   }
+  return {};
+}
 
-  return VideoFormat{
-    .width = ctx.video_enc_ctx->width,
-    .height = ctx.video_enc_ctx->height,
-    .crf = 23,
-    .pix_fmt = ctx.video_enc_ctx->pix_fmt,
-    .format = "mp4",
-    .codec = config::Config::getInstance().getFormat().codec.c_str()
-  };
+VideoFormat MP4Transcoder::getVideoFormatFromContext(const MP4Transcoder::Context& ctx, const std::string& enc_or_dec){
+  if ((!std::strcmp(enc_or_dec.c_str(), "enc"))
+      && ctx.video_enc_ctx != nullptr){
+    return VideoFormat{
+      .width = ctx.video_enc_ctx->width,
+      .height = ctx.video_enc_ctx->height,
+      .bitrate = ctx.video_enc_ctx->bit_rate,
+      .pix_fmt = ctx.video_enc_ctx->pix_fmt,
+      .format = "mp4",
+      .codec = ctx.video_enc_ctx->codec->name
+    };
+  }else if ((!std::strcmp(enc_or_dec.c_str(), "dec"))
+      && ctx.video_dec_ctx != nullptr){
+    return VideoFormat{
+      .width = ctx.video_dec_ctx->width,
+      .height = ctx.video_dec_ctx->height,
+      .bitrate = ctx.video_dec_ctx->bit_rate,
+      .pix_fmt = ctx.video_dec_ctx->pix_fmt,
+      .format = "mp4",
+      .codec = ctx.video_dec_ctx->codec->name
+    };
+  }
+  return VideoFormat{};
 }
 
 void MP4Transcoder::freeContext(Context& ctx) {
