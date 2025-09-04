@@ -58,7 +58,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   std::string output_path = output_base_path + ".mp4";
   auto& config = config::Config::getInstance();
   
-  if (const auto ret = openInputFile(input_path, ctx); !ret.has_value()) {
+  if (const auto ret = openInputFile(input_path, ctx); !ret) {
     return std::unexpected<std::string>(ret.error());
   }
   else if ((!std::strcmp(ctx.video_dec_ctx->codec->name, config.getFormat().codec.c_str()))
@@ -97,7 +97,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   std::cout<<f.debug()<<std::endl;
 
   if (const auto ret = openOutputFile(output_path, ctx, config.getFormat().codec_lib, config.getFormat().codec, config.getFormat().crf);
-      !ret.has_value()) {
+      !ret) {
     return std::unexpected<std::string>(ret.error());
   }
 
@@ -235,7 +235,7 @@ std::expected<void, std::string> MP4Transcoder::openInputFile(const std::string&
     ctx.audio_stream = ctx.input_ctx->streams[ctx.audio_stream_idx];
   }
 
-  if (const auto result = initVideoDecoder(ctx); !result.has_value()) {
+  if (const auto result = initVideoDecoder(ctx); !result) {
     return std::unexpected<std::string>(result.error());
   }
   return {};
@@ -277,7 +277,7 @@ std::expected<void, std::string> MP4Transcoder::openOutputFile(const std::string
     ctx.audio_stream_idx_out = out_audio_stream->index;
   }
   
-  if (const auto ret = initVideoEncoder(ctx, codec_lib, target_codec, crf); !ret.has_value()) {
+  if (const auto ret = initVideoEncoder(ctx, codec_lib, target_codec, crf); !ret) {
     return std::unexpected<std::string>(ret.error());
   }
 

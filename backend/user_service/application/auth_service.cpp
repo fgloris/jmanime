@@ -1,12 +1,12 @@
 #include "auth_service.hpp"
 
 namespace user_service {
-std::tuple<bool, std::string, std::string> AuthService::registerAndStore(const std::string& email,
+std::expected<std::tuple<std::string, std::string>, std::string> AuthService::registerAndStore(const std::string& email,
                                                    const std::string& username,
                                                    const std::string& password,
                                                    const std::string& avatar) {
   if (repository_->findByEmail(email)) {
-    return {false, "Email already exists", ""};
+    return std::unexpected("Email already exists");
   }
 
   uuid_t uuid;
@@ -16,7 +16,7 @@ std::tuple<bool, std::string, std::string> AuthService::registerAndStore(const s
 
   unsigned char salt[16];
   if (RAND_bytes(salt, sizeof(salt)) != 1) {
-    return {false, "Failed to generate salt", ""};
+    return std::unexpected("Failed to generate salt");
   }
 
   std::string salt_str;
@@ -45,18 +45,18 @@ std::tuple<bool, std::string, std::string> AuthService::registerAndStore(const s
 
   User user(uuid_str, email, username, hash_str, salt_str, avatar);
   if (!repository_->save(user)) {
-    return {false, "Failed to save user", ""};
+    return std::unexpected("Failed to save user");
   }
 
   auto token = createToken(uuid_str);
-  return {true, token, uuid_str};
+  return std::make_tuple(token, uuid_str);
 }
 
-std::tuple<bool, std::string, User> AuthService::login(const std::string& email,
+std::expected<std::tuple<std::string, User>, std::string> AuthService::login(const std::string& email,
                                         const std::string& password) {
   auto user_opt = repository_->findByEmail(email);
   if (!user_opt) {
-    return {false, "Invalid email or password", User("", "", "", "", "", "")};
+    return std::unexpected("Invalid email or password");
   }
 
   auto user = user_opt.value();
@@ -78,14 +78,14 @@ std::tuple<bool, std::string, User> AuthService::login(const std::string& email,
   }
 
   if (hash_str != user.password_hash()) {
-    return {false, "Invalid email or password", User("", "", "", "", "", "")};
+    return std::unexpected("Invalid email or password");
   }
 
   auto token = createToken(user.id());
-  return {true, token, user};
+  return std::make_tuple(token, user);
 }
 
-std::pair<bool, std::string> AuthService::validateToken(const std::string& token) {
+std::expected<std::string, std::string> AuthService::validateToken(const std::string& token) {
   try {
     auto decoded = jwt::decode(token);
     auto verifier = jwt::verify()
@@ -93,9 +93,9 @@ std::pair<bool, std::string> AuthService::validateToken(const std::string& token
     verifier.verify(decoded);
     
     auto user_id = decoded.get_payload_claim("user_id").as_string();
-    return {true, user_id};
+    return user_id;
   } catch (std::exception&) {
-    return {false, ""};
+    return std::unexpected("Invalid token");
   }
 }
 

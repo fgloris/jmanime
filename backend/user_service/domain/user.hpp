@@ -8,6 +8,8 @@ public:
        const std::string& password_hash, const std::string& salt, const std::string& avatar)
     : id_(id), email_(email), username_(username), password_hash_(password_hash),
       salt_(salt), avatar_(avatar) {}
+  
+  User(){}
 
   std::string id() const { return id_; }
   std::string email() const { return email_; }

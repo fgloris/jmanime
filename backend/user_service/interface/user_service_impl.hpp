@@ -13,51 +13,61 @@ public:
   grpc::Status Register(grpc::ServerContext* context,
                        const RegisterRequest* request,
                        RegisterResponse* response) override {
-    auto [success, message, user_id] = auth_service_->registerAndStore(
+    auto result = auth_service_->registerAndStore(
       request->email(),
       request->username(),
       request->password(),
       request->avatar()
     );
 
-    response->set_success(success);
-    if (success) {
-      response->set_user_id(user_id);
-      response->set_token(message);  // message 在成功时包含 token
-    } else {
-      response->set_message(message);
+    if (!result) {
+      response->set_success(false);
+      response->set_message(result.error());
+      return grpc::Status::OK;
     }
+
+    auto [token, user_id] = result.value();
+    response->set_success(true);
+    response->set_user_id(user_id);
+    response->set_token(token);
     return grpc::Status::OK;
   }
 
   grpc::Status Login(grpc::ServerContext* context,
                     const LoginRequest* request,
                     LoginResponse* response) override {
-    auto [success, token, user] = auth_service_->login(
+    auto result = auth_service_->login(
       request->email(),
       request->password()
     );
 
-    response->set_success(success);
-    if (success) {
-      response->set_token(token);
-      response->set_user_id(user.id());
-      response->set_username(user.username());
-      response->set_avatar(user.avatar());
-    } else {
-      response->set_message(token);
+    if (!result) {
+      response->set_success(false);
+      response->set_message(result.error());
+      return grpc::Status::OK;
     }
+
+    auto [token, user] = result.value();
+    response->set_success(true);
+    response->set_token(token);
+    response->set_user_id(user.id());
+    response->set_username(user.username());
+    response->set_avatar(user.avatar());
     return grpc::Status::OK;
   }
 
   grpc::Status ValidateToken(grpc::ServerContext* context,
                             const ValidateTokenRequest* request,
                             ValidateTokenResponse* response) override {
-    auto [valid, user_id] = auth_service_->validateToken(request->token());
-    response->set_valid(valid);
-    if (valid) {
-      response->set_user_id(user_id);
+    auto result = auth_service_->validateToken(request->token());
+    
+    if (!result) {
+      response->set_valid(false);
+      return grpc::Status::OK;
     }
+
+    response->set_valid(true);
+    response->set_user_id(result.value());
     return grpc::Status::OK;
   }
 

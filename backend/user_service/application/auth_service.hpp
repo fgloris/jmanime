@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <expected>
 #include <jwt-cpp/jwt.h>
 #include <uuid.h>
 #include <openssl/sha.h>
@@ -13,15 +14,15 @@ public:
   AuthService(std::shared_ptr<UserRepository> repository, const std::string& jwt_secret)
     : repository_(repository), jwt_secret_(jwt_secret) {}
 
-  std::tuple<bool, std::string, std::string> registerAndStore(const std::string& email,
+  std::expected<std::tuple<std::string, std::string>, std::string> registerAndStore(const std::string& email,
                                                    const std::string& username,
                                                    const std::string& password,
                                                    const std::string& avatar);
 
-  std::tuple<bool, std::string, User> login(const std::string& email,
+  std::expected<std::tuple<std::string, User>, std::string> login(const std::string& email,
                                           const std::string& password);
 
-  std::pair<bool, std::string> validateToken(const std::string& token);
+  std::expected<std::string, std::string> validateToken(const std::string& token);
 
 private:
   std::shared_ptr<UserRepository> repository_;

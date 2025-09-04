@@ -16,6 +16,6 @@ public:
     const std::string& output_base_path,
     const VideoFormat& format
   ) = 0;
-  virtual void waitForAll() = 0;
+  //virtual void waitForAll() = 0;
 };
 }

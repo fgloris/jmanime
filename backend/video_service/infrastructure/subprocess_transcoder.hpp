@@ -30,7 +30,7 @@ public:
     const VideoFormat& /* ignored_format */
   ) override;
 
-  void waitForAll() override;
+  void waitForAll();
 
 private:
   struct TranscoderParams {
