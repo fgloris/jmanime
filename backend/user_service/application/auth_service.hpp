@@ -11,23 +11,25 @@
 namespace user_service {
 class AuthService {
 public:
-  AuthService(std::shared_ptr<UserRepository> repository, const std::string& jwt_secret)
-    : repository_(repository), jwt_secret_(jwt_secret) {}
+  AuthService(std::shared_ptr<UserRepository> repository)
+    : repository_(repository) {}
 
-  std::expected<std::tuple<std::string, std::string>, std::string> registerAndStore(const std::string& email,
+  // return token, user struct
+  std::expected<std::tuple<std::string, User>, std::string> registerAndStore(const std::string& email,
                                                    const std::string& username,
                                                    const std::string& password,
                                                    const std::string& avatar);
 
+  // return token, user struct
   std::expected<std::tuple<std::string, User>, std::string> login(const std::string& email,
                                           const std::string& password);
 
+  // return user_id
   std::expected<std::string, std::string> validateToken(const std::string& token);
 
+  std::expected<void, std::string> sendEmailVerificationCode(const std::string& email, const std::string& code);
 private:
   std::shared_ptr<UserRepository> repository_;
-  std::string jwt_secret_;
-
   std::string createToken(const std::string& user_id);
 };
 }

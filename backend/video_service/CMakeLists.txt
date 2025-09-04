@@ -3,11 +3,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_CXX_STANDARD 23)
 project(video_service)
 
-# use boost 1.89 built from source.
-set(BOOST_ROOT "/usr/local")
-set(Boost_INCLUDE_DIR "/usr/local/include")
-set(Boost_LIBRARY_DIR "/usr/local/lib")
-
 set(Protobuf_MODULE_COMPATIBLE TRUE)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
@@ -22,7 +17,10 @@ pkg_check_modules(MYSQLCLIENT REQUIRED mysqlclient)
 
 message(STATUS "Using boost ${Boost_VERSION}, gRPC ${gRPC_VERSION}, Protobuf ${Protobuf_VERSION}")
 
-file(GLOB_RECURSE SOURCES "./*/*.cpp")
+file(GLOB_RECURSE SOURCES 
+  "application/*.cpp" "domain/*.cpp" "infrastructure/*.cpp" "interface/*.cpp"
+  "../common/*.cpp"
+)
 add_executable(${PROJECT_NAME} 
   ${SOURCES}
   ${PROTO_SRCS}
@@ -54,7 +52,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   uuid
 )
 
-add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS})
+add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} ${COMMON_SOURCES})
 
 target_include_directories(${PROJECT_NAME}_client PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -70,7 +68,7 @@ target_link_libraries(${PROJECT_NAME}_client PRIVATE
 )
 
 # Add transcoder test executable
-add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp)
+add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp ${COMMON_SOURCES})
 
 target_include_directories(test_transcoder PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}

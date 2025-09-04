@@ -1,23 +1,33 @@
 #include "mysql_user_repository.hpp"
 #include <cppconn/prepared_statement.h>
+#include <cstddef>
+#include <cstdlib>
 #include <uuid/uuid.h>
 #include <cstring>
 
 namespace user_service {
+
+void bind_string(MYSQL_BIND* bind, size_t pos,const std::string& string){
+  bind[pos].buffer_type = MYSQL_TYPE_STRING;
+  bind[pos].buffer_length = string.length();
+  bind[pos].buffer = malloc(string.length()*sizeof(char));
+  memcpy(bind[pos].buffer, (void*)string.c_str(), string.length()*sizeof(char));
+}
+
+void release_bind(MYSQL_BIND* bind, size_t startpos, size_t endpos){
+  for (size_t i=startpos; i<endpos; i++) free(bind[i].buffer);
+}
+
 MysqlUserRepository::MysqlUserRepository(const std::string& host, const std::string& user,
                                        const std::string& password, const std::string& database) {
   conn_ = mysql_init(nullptr);
   // 设置字符集为 utf8mb4
   mysql_options(conn_, MYSQL_SET_CHARSET_NAME, "utf8mb4");
-  mysql_options(conn_, MYSQL_INIT_COMMAND, "SET NAMES utf8mb4");
   
   if (!mysql_real_connect(conn_, host.c_str(), user.c_str(), password.c_str(),
                          database.c_str(), 0, nullptr, 0)) {
     throw std::runtime_error(mysql_error(conn_));
   }
-  
-  // 确保连接使用正确的字符集
-  mysql_set_character_set(conn_, "utf8mb4");
 }
 
 MysqlUserRepository::~MysqlUserRepository() {
@@ -44,66 +54,28 @@ bool MysqlUserRepository::save(const User& user) {
   MYSQL_BIND bind[11];
   memset(bind, 0, sizeof(bind));
 
-  // 使用正确的getter方法获取数据
-  const std::string& id_str = user.id();
-  const std::string& email_str = user.email();
-  const std::string& username_str = user.username();
-  const std::string& password_hash_str = user.password_hash();
-  const std::string& salt_str = user.salt();
-  const std::string& avatar_str = user.avatar();
+  bind_string(bind, 0, user.id());
+  bind_string(bind, 1, user.email());
+  bind_string(bind, 2, user.username());
+  bind_string(bind, 3, user.password_hash());
+  bind_string(bind, 4, user.salt());
+  bind_string(bind, 5, user.avatar());
 
-  bind[0].buffer_type = MYSQL_TYPE_STRING;
-  bind[0].buffer = (void*)id_str.c_str();
-  bind[0].buffer_length = id_str.length();
-
-  bind[1].buffer_type = MYSQL_TYPE_STRING;
-  bind[1].buffer = (void*)email_str.c_str();
-  bind[1].buffer_length = email_str.length();
-
-  bind[2].buffer_type = MYSQL_TYPE_STRING;
-  bind[2].buffer = (void*)username_str.c_str();
-  bind[2].buffer_length = username_str.length();
-
-  bind[3].buffer_type = MYSQL_TYPE_STRING;
-  bind[3].buffer = (void*)password_hash_str.c_str();
-  bind[3].buffer_length = password_hash_str.length();
-
-  bind[4].buffer_type = MYSQL_TYPE_STRING;
-  bind[4].buffer = (void*)salt_str.c_str();
-  bind[4].buffer_length = salt_str.length();
-
-  bind[5].buffer_type = MYSQL_TYPE_STRING;
-  bind[5].buffer = (void*)avatar_str.c_str();
-  bind[5].buffer_length = avatar_str.length();
-
-  // For ON DUPLICATE KEY UPDATE - 使用新的引用
-  bind[6].buffer_type = MYSQL_TYPE_STRING;
-  bind[6].buffer = (void*)email_str.c_str();
-  bind[6].buffer_length = email_str.length();
-
-  bind[7].buffer_type = MYSQL_TYPE_STRING;
-  bind[7].buffer = (void*)username_str.c_str();
-  bind[7].buffer_length = username_str.length();
-
-  bind[8].buffer_type = MYSQL_TYPE_STRING;
-  bind[8].buffer = (void*)password_hash_str.c_str();
-  bind[8].buffer_length = password_hash_str.length();
-
-  bind[9].buffer_type = MYSQL_TYPE_STRING;
-  bind[9].buffer = (void*)salt_str.c_str();
-  bind[9].buffer_length = salt_str.length();
-
-  bind[10].buffer_type = MYSQL_TYPE_STRING;
-  bind[10].buffer = (void*)avatar_str.c_str();
-  bind[10].buffer_length = avatar_str.length();
+  bind_string(bind, 6, user.email());
+  bind_string(bind, 7, user.username());
+  bind_string(bind, 8, user.password_hash());
+  bind_string(bind, 9, user.salt());
+  bind_string(bind, 10, user.avatar());
 
   if (mysql_stmt_bind_param(stmt, bind)) {
     mysql_stmt_close(stmt);
+    release_bind(bind, 0, 11);
     return false;
   }
 
   bool success = !mysql_stmt_execute(stmt);
   mysql_stmt_close(stmt);
+  release_bind(bind, 0, 11);
   return success;
 }
 
@@ -146,7 +118,7 @@ std::optional<User> MysqlUserRepository::findById(const std::string& id) {
   char username_buffer[256];
   char password_hash_buffer[65];
   char salt_buffer[33];
-  char avatar_buffer[512];
+  char avatar_buffer[400*400];
   unsigned long id_length, email_length, username_length, 
                 password_hash_length, salt_length, avatar_length;
 

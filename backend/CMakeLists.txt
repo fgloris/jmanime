@@ -8,6 +8,11 @@ option(DEBUG "Enable debug mode" OFF)
 # Add common directory to include path
 include_directories(${CMAKE_SOURCE_DIR})
 
+# use boost 1.89 built from source.
+set(BOOST_ROOT "/usr/local")
+set(Boost_INCLUDE_DIR "/usr/local/include")
+set(Boost_LIBRARY_DIR "/usr/local/lib")
+
 get_filename_component(vid_proto "proto/video.proto" ABSOLUTE)
 get_filename_component(user_proto "proto/user.proto" ABSOLUTE)
 get_filename_component(vid_proto_path "${vid_proto}" PATH)
@@ -77,6 +82,8 @@ set(PROTO_HDRS
   ${user_proto_hdrs}
   ${user_grpc_hdrs}
 )
+
+file(GLOB_RECURSE COMMON_SOURCES "common/*.cpp")
 
 add_subdirectory(third_parties/jwt-cpp)
 add_subdirectory(video_service)

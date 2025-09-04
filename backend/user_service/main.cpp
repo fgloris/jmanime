@@ -28,8 +28,7 @@ int main(int argc, char** argv) {
 
     // 初始化认证服务
     auto auth_service = std::make_shared<user_service::AuthService>(
-      repository,
-      auth_config.jwt_secret
+      repository
     );
 
     // 初始化gRPC服务

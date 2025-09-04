@@ -1,7 +1,10 @@
 #include "auth_service.hpp"
+#include "common/config.hpp"
+#include <chrono>
+#include <boost/asio.hpp>
 
 namespace user_service {
-std::expected<std::tuple<std::string, std::string>, std::string> AuthService::registerAndStore(const std::string& email,
+std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
                                                    const std::string& username,
                                                    const std::string& password,
                                                    const std::string& avatar) {
@@ -49,7 +52,7 @@ std::expected<std::tuple<std::string, std::string>, std::string> AuthService::re
   }
 
   auto token = createToken(uuid_str);
-  return std::make_tuple(token, uuid_str);
+  return std::make_tuple(token, user);
 }
 
 std::expected<std::tuple<std::string, User>, std::string> AuthService::login(const std::string& email,
@@ -89,7 +92,7 @@ std::expected<std::string, std::string> AuthService::validateToken(const std::st
   try {
     auto decoded = jwt::decode(token);
     auto verifier = jwt::verify()
-      .allow_algorithm(jwt::algorithm::hs256{jwt_secret_});
+      .allow_algorithm(jwt::algorithm::hs256{config::Config::getInstance().getAuth().jwt_secret});
     verifier.verify(decoded);
     
     auto user_id = decoded.get_payload_claim("user_id").as_string();
@@ -100,12 +103,24 @@ std::expected<std::string, std::string> AuthService::validateToken(const std::st
 }
 
 std::string AuthService::createToken(const std::string& user_id) {
+  const auto& auth = config::Config::getInstance().getAuth();
   return jwt::create()
     .set_issuer("auth0")
-    .set_type("JWS")
-    .set_issued_at(std::chrono::system_clock::now())
-    .set_expires_at(std::chrono::system_clock::now() + std::chrono::hours(24))
+    .set_type("JWT")
+    .set_issued_now()
+    .set_expires_in(std::chrono::seconds(3600*auth.jwt_expire_hours))
     .set_payload_claim("user_id", jwt::claim(user_id))
-    .sign(jwt::algorithm::hs256{jwt_secret_});
+    .sign(jwt::algorithm::hs256{auth.jwt_secret});
+}
+
+std::expected<void, std::string> AuthService::sendEmailVerificationCode(const std::string& email, const std::string& code){
+  try {
+    const auto& smtpConfig = config::Config::getInstance().getSMTP();
+    
+    
+    return {};
+  } catch (const std::exception& e) {
+    return std::unexpected(std::string("Failed to send verification email: ") + e.what());
+  }
 }
 }

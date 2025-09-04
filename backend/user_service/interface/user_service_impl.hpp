@@ -26,9 +26,9 @@ public:
       return grpc::Status::OK;
     }
 
-    auto [token, user_id] = result.value();
+    auto [token, user] = result.value();
     response->set_success(true);
-    response->set_user_id(user_id);
+    response->set_user_id(user.id());
     response->set_token(token);
     return grpc::Status::OK;
   }

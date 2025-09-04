@@ -1,0 +1,47 @@
+#include "config.hpp"
+namespace config {
+  Config::Config() {
+    database_ = {
+      .host = "localhost",
+      .user = "root",
+      .password = "114472988",
+      .name = "jmanime_db"
+    };
+
+    user_service_ = {
+      "0.0.0.0", 
+      50051
+    };
+
+    video_service_ = {
+      .host = "0.0.0.0",
+      .port = 50052
+    };
+
+    streaming_ = {
+      .host = "0.0.0.0",
+      .port = 8080
+    };
+
+    auth_ = {
+      .jwt_secret = "your-secret-key",
+      .jwt_expire_hours = 24
+    };
+
+    format_ = {
+      .format = "mp4",
+      .codec_lib = "libx264",
+      .codec = "h264",
+      .crf = 28
+    };
+
+    smtp_ = {
+      .server = "smtp.163.com",
+      .port = 465,
+      .username = "19902512605@163.com",
+      .password = "LTdtYt6DUbEKHZWb"
+    };
+
+    storage_path_ = "/home/ginger/Videos/jmanime";
+  }
+}
