@@ -4,10 +4,14 @@
 #include <boost/asio.hpp>
 
 namespace user_service {
+
 std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
                                                    const std::string& username,
                                                    const std::string& password,
                                                    const std::string& avatar) {
+  if (!std::regex_match(email, pattern)){
+    return std::unexpected("Email format invalid");
+  }
   if (repository_->findByEmail(email)) {
     return std::unexpected("Email already exists");
   }
@@ -114,6 +118,7 @@ std::string AuthService::createToken(const std::string& user_id) {
 }
 
 std::expected<void, std::string> AuthService::sendEmailVerificationCode(const std::string& email, const std::string& code){
+
   try {
     const auto& smtpConfig = config::Config::getInstance().getSMTP();
     

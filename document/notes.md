@@ -95,3 +95,22 @@ jwt常用于**保存用户登录状态**。用户登录时从服务器得到一�
 LTdtYt6DUbEKHZWb
 
 EQeKv32WRZfiSFsi
+
+
+
+# 常见网络框架概述
+
+## HTTP TCP/IP
+
+## Restful API
+
+## Graphql
+
+## Protobuf
+
+## GRPC
+
+## WebSocket
+
+## SSE
+
