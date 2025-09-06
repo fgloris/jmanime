@@ -38,8 +38,8 @@ namespace config {
     smtp_ = {
       .server = "smtp.163.com",
       .port = 465,
-      .username = "19902512605@163.com",
-      .password = "LTdtYt6DUbEKHZWb"
+      .password = "PDV3DvKnMmaYUA5p",
+      .from_email = "19313199238@163.com",
     };
 
     storage_path_ = "/home/ginger/Videos/jmanime";

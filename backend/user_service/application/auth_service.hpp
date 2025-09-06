@@ -4,8 +4,6 @@
 #include <regex>
 #include <jwt-cpp/jwt.h>
 #include <uuid.h>
-#include <openssl/sha.h>
-#include <openssl/rand.h>
 #include "domain/user.hpp"
 #include "domain/user_repository.hpp"
 
@@ -13,7 +11,7 @@ namespace user_service {
 class AuthService {
 public:
   AuthService(std::shared_ptr<UserRepository> repository)
-    : repository_(repository), pattern("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
+    : repository_(repository), email_pattern("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
 	"@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$") {}
 
   // return token, user struct
@@ -33,6 +31,6 @@ public:
 private:
   std::shared_ptr<UserRepository> repository_;
   std::string createToken(const std::string& user_id);
-  std::regex pattern;
+  std::regex email_pattern;
 };
 }

@@ -3,16 +3,15 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 set(CMAKE_CXX_STANDARD 23)
 project(user_service)
 
+set(CMAKE_BUILD_TYPE Debug)
 set(Protobuf_MODULE_COMPATIBLE TRUE)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
-find_package(OpenSSL REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Boost REQUIRED)
 pkg_check_modules(UUID REQUIRED uuid)
 pkg_check_modules(MYSQLCLIENT REQUIRED mysqlclient)
 
-# Main executable
 file(GLOB_RECURSE SOURCES 
   "application/*.cpp" "domain/*.cpp" "infrastructure/*.cpp" "interface/*.cpp"
   "../common/*.cpp"
@@ -31,7 +30,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${Protobuf_INCLUDE_DIRS}
   ${CMAKE_CURRENT_BINARY_DIR}
   ${PROTO_GEN_DIR}
-  ${OPENSSL_INCLUDE_DIR}
   ${UUID_INCLUDE_DIRS}
   ${MYSQLCLIENT_INCLUDE_DIRS}
 )
@@ -43,8 +41,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   protobuf::libprotobuf
   gRPC::grpc
   gRPC::grpc++
-  OpenSSL::SSL
-  OpenSSL::Crypto
   jwt-cpp
   uuid
 )
