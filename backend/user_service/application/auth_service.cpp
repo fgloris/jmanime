@@ -12,13 +12,14 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
                                                    const std::string& username,
                                                    const std::string& password,
                                                    const std::string& avatar) {
+  auto res = sendEmailVerificationCode(email, "123456");
+  return std::unexpected("test ends!");
   if (!std::regex_match(email, email_pattern)){
     return std::unexpected("Email format invalid");
   }
   if (repository_->findByEmail(email)) {
     return std::unexpected("Email already exists");
   }
-  auto res = sendEmailVerificationCode(email, "123456");
   if (!res){
     std::cout<<res.error()<<std::endl;
   }else{
