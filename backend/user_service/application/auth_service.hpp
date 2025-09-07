@@ -16,7 +16,7 @@ public:
 
   // return token, user struct
   std::expected<std::tuple<std::string, User>, std::string> registerAndStore(const std::string& email,
-                                                                            const std::string& verify_code,
+                                                                            //const std::string& verify_code,
                                                                             const std::string& username,
                                                                             const std::string& password,
                                                                             const std::string& avatar);

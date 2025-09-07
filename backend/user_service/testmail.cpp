@@ -41,12 +41,17 @@ int main(){
   std::string code = "123456";
 
   auto repository = std::make_shared<user_service::MysqlUserRepository>(
-      db_config.host,
-      db_config.user,
-      db_config.password,
-      db_config.name
-    );
+    db_config.host,
+    db_config.user,
+    db_config.password,
+    db_config.name
+  );
 
+  if (repository->findByEmail(email)){
+    std::cout<<"tag2"<<std::endl;
+  }else{
+    std::cout<<"tag3"<<std::endl;
+  }
   std::cout<<"tag1"<<std::endl;
 
   
@@ -171,11 +176,5 @@ int main(){
 
   socket.lowest_layer().shutdown(ip::tcp::socket::shutdown_both);
   socket.lowest_layer().close();
-
-  if (repository->findByEmail(email)){
-    std::cout<<"tag2"<<std::endl;
-  }else{
-    std::cout<<"tag3"<<std::endl;
-  }
   return 0;
 }

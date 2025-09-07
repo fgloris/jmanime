@@ -2,9 +2,11 @@
 #include "common/config.hpp"
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/verify_mode.hpp>
+#include <boost/system/detail/error_code.hpp>
 #include <chrono>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <memory>
 #include <string>
 
 namespace user_service {
@@ -40,11 +42,22 @@ std::expected<std::string, std::string> AuthService::getVerificationCodeFromDB(c
   return "123456";
 }
 
+std::expected<std::string, std::string> AuthService::generateVerificationCode(const std::string& email){
+  return "123456";
+}
+
 std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
-                                                                                       const std::string& verify_code,
+                                                                                       //const std::string& verify_code,
                                                                                        const std::string& username,
                                                                                        const std::string& password,
                                                                                        const std::string& avatar) {
+  if (!std::regex_match(email, email_pattern)){
+    return std::unexpected("Email format invalid");
+  }
+  if (repository_->findByEmail(email)) {
+    return std::unexpected("email already exists");
+  }
+  auto res = sendEmailVerificationCode(email, "123456");
   uuid_t uuid;
   uuid_generate(uuid);
   char uuid_str[37];
@@ -187,12 +200,11 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
     ip::tcp::resolver::results_type endpoints = resolver.resolve(smtpConfig.server, std::to_string(smtpConfig.port));
     
     //ip::tcp::socket socket(io_context);
-    ssl::stream<ip::tcp::socket> socket(io_context, ssl_context);
+    auto socket = std::make_unique<ssl::stream<ip::tcp::socket>>(io_context, ssl_context);
+    connect(socket->lowest_layer(), endpoints);
 
-    connect(socket.lowest_layer(), endpoints);
 
-
-    socket.handshake(boost::asio::ssl::stream_base::client);
+    socket->handshake(boost::asio::ssl::stream_base::client);
 
 
 
@@ -204,7 +216,7 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
       std::string full_response;
       bool success = false;
       do {
-        read_until(socket, response, "\r\n");
+        read_until(*socket, response, "\r\n");
         std::istream is(&response);
         std::getline(is, response_line);
         full_response += response_line + "\n";
@@ -227,49 +239,49 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
 
     // 2. 发送 EHLO 命令
     std::string ehlo_cmd = "EHLO " + smtpConfig.server + "\r\n";
-    write(socket, buffer(ehlo_cmd));
+    write(*socket, buffer(ehlo_cmd));
     if (!read_response("250")) {
         return std::unexpected("Failed to send EHLO command");
     }
 
     // 3. 发送 AUTH LOGIN 命令
     std::string auth_login_cmd = "AUTH LOGIN\r\n";
-    write(socket, buffer(auth_login_cmd));
+    write(*socket, buffer(auth_login_cmd));
     if (!read_response("334")) {
         return std::unexpected("Failed to send AUTH LOGIN command");
     }
 
     // 4. 发送 Base64 编码的用户名
     std::string username_base64 = base64_encode(smtpConfig.from_email);
-    write(socket, buffer(username_base64 + "\r\n"));
+    write(*socket, buffer(username_base64 + "\r\n"));
     if (!read_response("334")) {
         return std::unexpected("Failed to send username");
     }
 
     // 5. 发送 Base64 编码的密码
     std::string password_base64 = base64_encode(smtpConfig.password);
-    write(socket, buffer(password_base64 + "\r\n"));
+    write(*socket, buffer(password_base64 + "\r\n"));
     if (!read_response("235")) {
         return std::unexpected("Failed to authenticate");
     }
 
     // 6. 发送 MAIL FROM 命令
     std::string mail_from_cmd = "MAIL FROM:<" + smtpConfig.from_email + ">\r\n";
-    write(socket, buffer(mail_from_cmd));
+    write(*socket, buffer(mail_from_cmd));
     if (!read_response("250")) {
         return std::unexpected("Failed to set sender");
     }
 
     // 7. 发送 RCPT TO 命令
     std::string rcpt_to_cmd = "RCPT TO:<" + email + ">\r\n";
-    write(socket, buffer(rcpt_to_cmd));
+    write(*socket, buffer(rcpt_to_cmd));
     if (!read_response("250")) {
         return std::unexpected("Failed to set recipient");
     }
 
     // 8. 发送 DATA 命令
     std::string data_cmd = "DATA\r\n";
-    write(socket, buffer(data_cmd));
+    write(*socket, buffer(data_cmd));
     if (!read_response("354")) {
         return std::unexpected("Failed to send DATA command");
     }
@@ -282,18 +294,22 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
                           + "Content-Type: text/plain; charset=utf-8\r\n"
                           + "\r\n"
                           + "Your verification code is: " + code + "\r\n";
-    write(socket, buffer(email_body + "\r\n.\r\n"));
+    write(*socket, buffer(email_body + "\r\n.\r\n"));
     if (!read_response("250")) {
         return std::unexpected("Failed to send email body");
     }
 
     // 10. 发送 QUIT 命令并关闭连接
     std::string quit_cmd = "QUIT\r\n";
-    write(socket, buffer(quit_cmd));
+    write(*socket, buffer(quit_cmd));
     read_response("221");
 
-    socket.lowest_layer().shutdown(ip::tcp::socket::shutdown_both);
-    socket.lowest_layer().close();
+    boost::system::error_code ec;
+    socket->shutdown(ec);
+
+    socket->lowest_layer().shutdown(ip::tcp::socket::shutdown_both);
+    socket->lowest_layer().close();
+    socket.reset();
     return {};
   } catch (const std::exception& e) {
     return std::unexpected(std::string("Failed to send verification email: ") + e.what());
