@@ -10,11 +10,21 @@ public:
   UserServiceImpl(std::shared_ptr<AuthService> auth_service)
     : auth_service_(auth_service) {}
 
+  grpc::Status ValidateEmail(grpc::ServerContext* context,
+                            const ValidateEmailRequest* request,
+                            ValidateEmailResponse* response) override {
+    auto result = auth_service_->registerSendEmailVerificationCode(request->email());
+    
+    response->set_send_code_success(result.has_value());
+    return grpc::Status::OK;
+  }
+
   grpc::Status Register(grpc::ServerContext* context,
                        const RegisterRequest* request,
                        RegisterResponse* response) override {
     auto result = auth_service_->registerAndStore(
       request->email(),
+      request->vericode(),
       request->username(),
       request->password(),
       request->avatar()

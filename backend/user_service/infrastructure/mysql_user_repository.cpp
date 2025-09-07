@@ -1,23 +1,10 @@
 #include "mysql_user_repository.hpp"
 #include <cassert>
 #include <cppconn/prepared_statement.h>
-#include <cstddef>
-#include <cstdlib>
 #include <uuid/uuid.h>
 #include <cstring>
 
 namespace user_service {
-
-void bind_string(MYSQL_BIND* bind, size_t pos,const std::string& string){
-  bind[pos].buffer_type = MYSQL_TYPE_STRING;
-  bind[pos].buffer_length = string.length();
-  bind[pos].buffer = malloc(string.length()*sizeof(char));
-  memcpy(bind[pos].buffer, (void*)string.c_str(), string.length()*sizeof(char));
-}
-
-void release_bind(MYSQL_BIND* bind, size_t startpos, size_t endpos){
-  for (size_t i=startpos; i<endpos; i++) free(bind[i].buffer);
-}
 
 MysqlUserRepository::MysqlUserRepository(const std::string& host, const std::string& user,
                                        const std::string& password, const std::string& database) {
@@ -52,31 +39,28 @@ bool MysqlUserRepository::save(const User& user) {
     return false;
   }
 
-  MYSQL_BIND bind[11];
-  memset(bind, 0, sizeof(bind));
+  MysqlBindHelper bind_helper(11);
+  bind_helper.bind_string(0, user.id());
+  bind_helper.bind_string(1, user.email());
+  bind_helper.bind_string(2, user.username());
+  bind_helper.bind_string(3, user.password_hash());
+  bind_helper.bind_string(4, user.salt());
+  bind_helper.bind_string(5, user.avatar());
+  
+  // ON DUPLICATE KEY UPDATE parameters
+  bind_helper.bind_string(6, user.email());
+  bind_helper.bind_string(7, user.username());
+  bind_helper.bind_string(8, user.password_hash());
+  bind_helper.bind_string(9, user.salt());
+  bind_helper.bind_string(10, user.avatar());
 
-  bind_string(bind, 0, user.id());
-  bind_string(bind, 1, user.email());
-  bind_string(bind, 2, user.username());
-  bind_string(bind, 3, user.password_hash());
-  bind_string(bind, 4, user.salt());
-  bind_string(bind, 5, user.avatar());
-
-  bind_string(bind, 6, user.email());
-  bind_string(bind, 7, user.username());
-  bind_string(bind, 8, user.password_hash());
-  bind_string(bind, 9, user.salt());
-  bind_string(bind, 10, user.avatar());
-
-  if (mysql_stmt_bind_param(stmt, bind)) {
+  if (mysql_stmt_bind_param(stmt, bind_helper.data())) {
     mysql_stmt_close(stmt);
-    release_bind(bind, 0, 11);
     return false;
   }
 
   bool success = !mysql_stmt_execute(stmt);
   mysql_stmt_close(stmt);
-  release_bind(bind, 0, 11);
   return success;
 }
 
@@ -94,14 +78,10 @@ std::optional<User> MysqlUserRepository::findById(const std::string& id) {
     return std::nullopt;
   }
 
-  MYSQL_BIND bind[1];
-  memset(bind, 0, sizeof(bind));
+  MysqlBindHelper bind_helper(1);
+  bind_helper.bind_string(0, id);
 
-  bind[0].buffer_type = MYSQL_TYPE_STRING;
-  bind[0].buffer = (void*)id.c_str();
-  bind[0].buffer_length = id.length();
-
-  if (mysql_stmt_bind_param(stmt, bind)) {
+  if (mysql_stmt_bind_param(stmt, bind_helper.data())) {
     mysql_stmt_close(stmt);
     return std::nullopt;
   }
@@ -189,14 +169,10 @@ std::optional<User> MysqlUserRepository::findByEmail(const std::string& email) {
     return std::nullopt;
   }
 
-  MYSQL_BIND bind[1];
-  memset(bind, 0, sizeof(bind));
+  MysqlBindHelper bind_helper(1);
+  bind_helper.bind_string(0, email);
 
-  bind[0].buffer_type = MYSQL_TYPE_STRING;
-  bind[0].buffer = (void*)email.c_str();
-  bind[0].buffer_length = email.length();
-
-  if (mysql_stmt_bind_param(stmt, bind)) {
+  if (mysql_stmt_bind_param(stmt, bind_helper.data())) {
     mysql_stmt_close(stmt);
     return std::nullopt;
   }

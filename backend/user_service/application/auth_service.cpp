@@ -32,6 +32,10 @@ std::expected<std::string, std::string> AuthService::registerSendEmailVerificati
   }
 }
 
+std::expected<std::string, std::string> AuthService::generateVerificationCode(const std::string& email){
+
+}
+
 std::expected<void, std::string> AuthService::saveVerificationCode(const std::string& email, const std::string& code){
   return {};
 }
@@ -41,7 +45,7 @@ std::expected<std::string, std::string> AuthService::getVerificationCodeFromDB(c
 }
 
 std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
-                                                                                       const std::string& verify_code,
+                                                                                       const std::string& vericode,
                                                                                        const std::string& username,
                                                                                        const std::string& password,
                                                                                        const std::string& avatar) {
@@ -89,7 +93,7 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
 }
 
 std::expected<std::tuple<std::string, User>, std::string> AuthService::login(const std::string& email,
-                                        const std::string& password) {
+                                                                            const std::string& password) {
   auto user_opt = repository_->findByEmail(email);
   if (!user_opt) {
     return std::unexpected("Invalid email or password");

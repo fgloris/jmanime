@@ -3,16 +3,26 @@ syntax = "proto3";
 package user_service;
 
 service UserService {
+  rpc ValidateEmail(ValidateEmailRequest) returns (ValidateEmailResponse) {};
   rpc Register(RegisterRequest) returns (RegisterResponse) {};
   rpc Login(LoginRequest) returns (LoginResponse) {};
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {};
 }
 
+message ValidateEmailRequest {
+  string email = 1;
+}
+
+message ValidateEmailResponse {
+  string send_code_success = 1;
+}
+
 message RegisterRequest {
   string email = 1;
-  string username = 2;
-  string password = 3;
-  string avatar = 4;
+  string vericode = 2;
+  string username = 3;
+  string password = 4;
+  string avatar = 5;
 }
 
 message RegisterResponse {
