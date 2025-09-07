@@ -5,27 +5,46 @@
 #include <chrono>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <string>
 
 namespace user_service {
 
-std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
-                                                   const std::string& username,
-                                                   const std::string& password,
-                                                   const std::string& avatar) {
-  auto res = sendEmailVerificationCode(email, "123456");
-  return std::unexpected("test ends!");
+std::expected<std::string, std::string> AuthService::registerSendEmailVerificationCode(const std::string& email) {
   if (!std::regex_match(email, email_pattern)){
     return std::unexpected("Email format invalid");
   }
-  if (repository_->findByEmail(email)) {
-    return std::unexpected("Email already exists");
+  auto res_code = generateVerificationCode(email);
+  if (!res_code){
+    return std::unexpected("failed to generate verification code!");
   }
+  std::string code = res_code.value();
+  auto res = sendEmailVerificationCode(email, code);
   if (!res){
     std::cout<<res.error()<<std::endl;
+    return std::unexpected("failed to send verification code!");
   }else{
     std::cout<<"send email success!"<<std::endl;
+    res = saveVerificationCode(email, code);
+    if (!res){
+      return std::unexpected("failed to save verification code!");
+    }
+    return code;
   }
+}
 
+std::expected<void, std::string> AuthService::saveVerificationCode(const std::string& email, const std::string& code){
+  return {};
+}
+
+std::expected<std::string, std::string> AuthService::getVerificationCodeFromDB(const std::string& email){
+  return "123456";
+}
+
+std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
+                                                                                       const std::string& verify_code,
+                                                                                       const std::string& username,
+                                                                                       const std::string& password,
+                                                                                       const std::string& avatar) {
   uuid_t uuid;
   uuid_generate(uuid);
   char uuid_str[37];
@@ -185,17 +204,17 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
       std::string full_response;
       bool success = false;
       do {
-          read_until(socket, response, "\r\n");
-          std::istream is(&response);
-          std::getline(is, response_line);
-          full_response += response_line + "\n";
-          
-          if (response_line.length() >= 4 && response_line.at(3) == '-') {
-            continue;
-          } else {
-            success = response_line.substr(0, 3) == expected_code;
-            break;
-          }
+        read_until(socket, response, "\r\n");
+        std::istream is(&response);
+        std::getline(is, response_line);
+        full_response += response_line + "\n";
+        
+        if (response_line.length() >= 4 && response_line.at(3) == '-') {
+          continue;
+        } else {
+          success = response_line.substr(0, 3) == expected_code;
+          break;
+        }
       } while (true);
       std::cout << "Server response: \n" << full_response << std::endl;
       return success;
@@ -275,7 +294,6 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
 
     socket.lowest_layer().shutdown(ip::tcp::socket::shutdown_both);
     socket.lowest_layer().close();
-    
     return {};
   } catch (const std::exception& e) {
     return std::unexpected(std::string("Failed to send verification email: ") + e.what());

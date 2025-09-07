@@ -16,9 +16,12 @@ public:
 
   // return token, user struct
   std::expected<std::tuple<std::string, User>, std::string> registerAndStore(const std::string& email,
-                                                   const std::string& username,
-                                                   const std::string& password,
-                                                   const std::string& avatar);
+                                                                            const std::string& verify_code,
+                                                                            const std::string& username,
+                                                                            const std::string& password,
+                                                                            const std::string& avatar);
+
+  std::expected<std::string, std::string> registerSendEmailVerificationCode(const std::string& email);
 
   // return token, user struct
   std::expected<std::tuple<std::string, User>, std::string> login(const std::string& email,
@@ -29,6 +32,10 @@ public:
 
   std::expected<void, std::string> sendEmailVerificationCode(const std::string& email, const std::string& code);
 private:
+  std::expected<std::string, std::string> generateVerificationCode(const std::string& email);
+  std::expected<void, std::string> saveVerificationCode(const std::string& email, const std::string& code);
+  std::expected<std::string, std::string> getVerificationCodeFromDB(const std::string& email);
+
   std::shared_ptr<UserRepository> repository_;
   std::string createToken(const std::string& user_id);
   std::regex email_pattern;

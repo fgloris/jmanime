@@ -104,9 +104,9 @@ int main(int argc, char** argv) {
   std::string token;
 
   // Test registration
-  if (!client.Register("19313199238@163.com", "testuser", "1234566", "avatar.jpg").empty()) {
+  if (!client.Register("19902512605@163.com", "testuser", "1234566", "avatar.jpg").empty()) {
     // Test login
-    if (const auto token = client.Login("19313199238@163.com", "1234567");!token.empty()) {
+    if (const auto token = client.Login("19902512605@163.com", "1234567");!token.empty()) {
       // Get token from login response and validate it
       // Note: In real usage, you would save the token from the response
       client.ValidateToken(token);

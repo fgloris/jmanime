@@ -1,4 +1,5 @@
 #include "mysql_user_repository.hpp"
+#include <cassert>
 #include <cppconn/prepared_statement.h>
 #include <cstddef>
 #include <cstdlib>
@@ -118,7 +119,7 @@ std::optional<User> MysqlUserRepository::findById(const std::string& id) {
   char username_buffer[256];
   char password_hash_buffer[65];
   char salt_buffer[33];
-  char avatar_buffer[400*400];
+  char avatar_buffer[400*400*3];
   unsigned long id_length, email_length, username_length, 
                 password_hash_length, salt_length, avatar_length;
 
@@ -213,7 +214,7 @@ std::optional<User> MysqlUserRepository::findByEmail(const std::string& email) {
   char username_buffer[256];
   char password_hash_buffer[65];
   char salt_buffer[33];
-  char avatar_buffer[512];
+  char avatar_buffer[400*400*3];
   unsigned long id_length, email_length, username_length, 
                 password_hash_length, salt_length, avatar_length;
 
