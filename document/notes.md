@@ -90,6 +90,9 @@ jwt常用于**保存用户登录状态**。用户登录时从服务器得到一�
   4. **密钥交换**：双方协商生成会话密钥
   5. **安全通信**：使用会话密钥加密所有后续通信
 
+  如何正确关闭SSL连接？
+  https://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error/25703699#25703699
+  https://stackoverflow.com/questions/32046034/what-is-the-proper-way-to-securely-disconnect-an-asio-ssl-socket
 ## 如何保存验证码？
 
 LTdtYt6DUbEKHZWb

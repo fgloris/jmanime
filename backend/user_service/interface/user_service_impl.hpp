@@ -16,6 +16,9 @@ public:
     auto result = auth_service_->registerSendEmailVerificationCode(request->email());
     
     response->set_send_code_success(result.has_value());
+    if (!result) {
+      response->set_message(result.error());
+    }
     return grpc::Status::OK;
   }
 

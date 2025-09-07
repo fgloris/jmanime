@@ -2,6 +2,7 @@
 #include <memory>
 #include <grpcpp/grpcpp.h>
 #include "../build/generated/user.grpc.pb.h"
+#include "user.pb.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -13,10 +14,32 @@ public:
   UserServiceClient(std::shared_ptr<Channel> channel)
     : stub_(UserService::NewStub(channel)) {}
 
+  std::string sendEmail(const std::string& email) {
+    ValidateEmailRequest request;
+    request.set_email(email);
+
+    ValidateEmailResponse response;
+    ClientContext context;
+
+    Status status = stub_->ValidateEmail(&context, request, &response);
+
+    if (status.ok()) {
+      if (response.send_code_success()) {
+        std::cout << "Send email successful!" << std::endl;
+      } else {
+        std::cout << "Registration failed: " << response.message() << std::endl;
+      }
+    } else {
+      std::cout << "RPC failed: " << status.error_message() << std::endl;
+    }
+    return "";
+  }
+
   std::string Register(const std::string& email, const std::string& username,
                const std::string& password, const std::string& avatar) {
     RegisterRequest request;
     request.set_email(email);
+    request.set_vericode("123456");
     request.set_username(username);
     request.set_password(password);
     request.set_avatar(avatar);
@@ -104,12 +127,14 @@ int main(int argc, char** argv) {
   std::string token;
 
   // Test registration
-  if (!client.Register("19902512605@163.com", "testuser", "1234566", "avatar.jpg").empty()) {
-    // Test login
-    if (const auto token = client.Login("19902512605@163.com", "1234567");!token.empty()) {
-      // Get token from login response and validate it
-      // Note: In real usage, you would save the token from the response
-      client.ValidateToken(token);
+  if (!client.sendEmail("19902512605@163.com").empty()){
+    if (!client.Register("19902512605@163.com", "testuser", "1234566", "avatar.jpg").empty()) {
+      // Test login
+      if (const auto token = client.Login("19902512605@163.com", "1234567");!token.empty()) {
+        // Get token from login response and validate it
+        // Note: In real usage, you would save the token from the response
+        client.ValidateToken(token);
+      }
     }
   }
 

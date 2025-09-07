@@ -14,7 +14,8 @@ message ValidateEmailRequest {
 }
 
 message ValidateEmailResponse {
-  string send_code_success = 1;
+  bool send_code_success = 1;
+  string message = 2;
 }
 
 message RegisterRequest {
