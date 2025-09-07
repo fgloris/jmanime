@@ -1,23 +1,26 @@
 #pragma once
 #include "domain/user_repository.hpp"
+#include "../../common/connection_pool.hpp"
 #include <mysql/mysql.h>
 #include <string>
 #include <cstring>
 #include <vector>
+#include <memory>
 
 namespace user_service {
 class MysqlUserRepository : public UserRepository {
 public:
-  MysqlUserRepository(const std::string& host, const std::string& user,
-                     const std::string& password, const std::string& database);
-  ~MysqlUserRepository();
+  explicit MysqlUserRepository(std::shared_ptr<common::ConnectionPool> pool);
+  ~MysqlUserRepository() = default;
   
   bool save(const User& user) override;
   std::optional<User> findById(const std::string& id) override;
   std::optional<User> findByEmail(const std::string& email) override;
 
 private:
-  MYSQL* conn_;
+  // 执行查询并获取单个用户结果
+  std::optional<User> executeSelectQuery(const char* query, const std::string& param);
+  std::shared_ptr<common::ConnectionPool> pool_;
 };
 
 

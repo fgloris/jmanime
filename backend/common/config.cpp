@@ -1,11 +1,19 @@
 #include "config.hpp"
+#include <chrono>
+
 namespace config {
+  
   Config::Config() {
     database_ = {
       .host = "localhost",
       .user = "root",
       .password = "114472988",
-      .name = "jmanime_db"
+      .db_name = "jmanime_db",
+      .charset = "utf8mb4",
+      .min_connections = 5,
+      .max_connections = 20,
+      .timeout = std::chrono::milliseconds(5000),
+      .idle_timeout = std::chrono::seconds(600)
     };
 
     user_service_ = {

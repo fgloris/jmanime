@@ -44,31 +44,29 @@ int main(){
       db_config.host,
       db_config.user,
       db_config.password,
-      db_config.name
+      db_config.db_name
     );
 
-  std::cout<<"tag1"<<std::endl;
+  if (repository->findByEmail(email)){
+    std::cout<<"tag1"<<std::endl;
+  }else{
+    std::cout<<"tag2"<<std::endl;
+  }
 
   
   using namespace boost::asio;
   io_context io_context;
 
-  std::cout<<"tag4"<<std::endl;
   ssl::context ssl_context(ssl::context::tlsv13);
-  std::cout<<"tag5"<<std::endl;
   ssl_context.set_default_verify_paths();
   ssl_context.set_verify_mode(ssl::verify_peer);
-  std::cout<<"tag6"<<std::endl;
 
   ip::tcp::resolver resolver(io_context);
   ip::tcp::resolver::results_type endpoints = resolver.resolve(smtpConfig.server, std::to_string(smtpConfig.port));
   
-  //ip::tcp::socket socket(io_context);
   ssl::stream<ip::tcp::socket> socket(io_context, ssl_context);
-  std::cout<<"tag7"<<std::endl;
   connect(socket.lowest_layer(), endpoints);
 
-  std::cout<<"tag8"<<std::endl;
 
   socket.handshake(boost::asio::ssl::stream_base::client);
 
@@ -171,11 +169,5 @@ int main(){
 
   socket.lowest_layer().shutdown(ip::tcp::socket::shutdown_both);
   socket.lowest_layer().close();
-
-  if (repository->findByEmail(email)){
-    std::cout<<"tag2"<<std::endl;
-  }else{
-    std::cout<<"tag3"<<std::endl;
-  }
   return 0;
 }

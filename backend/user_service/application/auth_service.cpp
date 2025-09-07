@@ -8,6 +8,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <openssl/err.h>
+#include <openssl/rand.h>
 #include <memory>
 #include <string>
 
@@ -27,7 +28,7 @@ std::expected<std::string, std::string> AuthService::registerSendEmailVerificati
     std::cout<<res.error()<<std::endl;
     return std::unexpected("failed to send verification code: " + res.error());
   }else{
-    res = saveVerificationCode(email, code);
+    res = saveVerificationCodeToDB(email, code);
     if (!res){
       return std::unexpected("failed to save verification code: " + res.error());
     }
@@ -37,13 +38,29 @@ std::expected<std::string, std::string> AuthService::registerSendEmailVerificati
 
 std::expected<std::string, std::string> AuthService::generateVerificationCode(const std::string& email){
   return "123456";
+  const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const int code_length = 8;
+  
+  unsigned char random_bytes[code_length];
+  if (int res = RAND_bytes(random_bytes, code_length) != 1) {
+    return std::unexpected("openssl func RAND_bytes error: " + std::to_string(res));
+  }
+  
+  std::string code;
+  code.reserve(code_length);
+  
+  for (int i = 0; i < code_length; i++) {
+    code += chars[random_bytes[i] % chars.length()];
+  }
+  
+  return code;
 }
 
-std::expected<void, std::string> AuthService::saveVerificationCode(const std::string& email, const std::string& code){
+std::expected<void, std::string> AuthService::saveVerificationCodeToDB(const std::string& email, const std::string& code){
   return {};
 }
 
-std::expected<std::string, std::string> AuthService::getVerificationCodeFromDB(const std::string& email){
+std::expected<std::string, std::string> AuthService::loadVerificationCodeFromDB(const std::string& email){
   return "123456";
 }
 
@@ -52,7 +69,7 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
                                                                                        const std::string& username,
                                                                                        const std::string& password,
                                                                                        const std::string& avatar) {
-  auto code_res = getVerificationCodeFromDB(email);
+  auto code_res = loadVerificationCodeFromDB(email);
   if (!code_res){
     if (code_res.error() == "no verification code for email"){
       return std::unexpected("verification code not prepared");

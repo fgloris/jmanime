@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
         db_config.host,
         db_config.user,
         db_config.password,
-        db_config.name
+        db_config.db_name
       );
   
   std::shared_ptr<video_service::DownloadService> download_service = 

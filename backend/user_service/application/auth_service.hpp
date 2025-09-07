@@ -33,8 +33,8 @@ public:
   std::expected<void, std::string> sendEmailVerificationCode(const std::string& email, const std::string& code);
 private:
   std::expected<std::string, std::string> generateVerificationCode(const std::string& email);
-  std::expected<void, std::string> saveVerificationCode(const std::string& email, const std::string& code);
-  std::expected<std::string, std::string> getVerificationCodeFromDB(const std::string& email);
+  std::expected<void, std::string> saveVerificationCodeToDB(const std::string& email, const std::string& code);
+  std::expected<std::string, std::string> loadVerificationCodeFromDB(const std::string& email);
 
   std::shared_ptr<UserRepository> repository_;
   std::string createToken(const std::string& user_id);
