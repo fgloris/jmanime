@@ -1,12 +1,8 @@
 #include "auth_service.hpp"
 #include "common/config.hpp"
-#include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/verify_mode.hpp>
-#include <boost/system/detail/error_code.hpp>
+#include "common/smtp_connection_pool.hpp"
 #include <cassert>
 #include <chrono>
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <memory>
@@ -208,7 +204,7 @@ std::string base64_encode(const std::string& in) {
 std::expected<void, std::string> AuthService::sendEmailVerificationCode(const std::string& email, const std::string& code){
 
   try {
-    
+    auto start = std::chrono::steady_clock::now();
     const auto& smtpConfig = config::Config::getInstance().getSMTP();
     using namespace boost::asio;
     io_context io_context;
@@ -334,19 +330,22 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
     const char dummy_buffer[] = "\0";
     async_write(*socket, buffer(dummy_buffer, 1), 
                 [&write_ec, socket](const boost::system::error_code& ec, std::size_t) {
-        write_ec = ec;
-        // 检查是否是SSL协议关闭错误，如果是，代表async_shutdown已经关闭本侧SSL写入端
-        if ((ec.category() == boost::asio::error::get_ssl_category()) &&
-            (SSL_R_PROTOCOL_IS_SHUTDOWN == ERR_GET_REASON(ec.value()))) {
-            // 关闭底层tcp连接，这会取消shutdown操作对另一侧的close_notify的等待
-            socket->lowest_layer().close();
-        }
+      write_ec = ec;
+      // 检查是否是SSL协议关闭错误，如果是，代表async_shutdown已经关闭本侧SSL写入端
+      if ((ec.category() == boost::asio::error::get_ssl_category()) &&
+          (SSL_R_PROTOCOL_IS_SHUTDOWN == ERR_GET_REASON(ec.value()))) {
+          // 关闭底层tcp连接，这会取消shutdown操作对另一侧的close_notify的等待
+          socket->lowest_layer().close();
+      }
     });
 
     // 运行io_context直到所有操作完成或被取消
     io_context.run();
 
     socket.reset();
+    auto end = std::chrono::steady_clock::now();
+    auto cost = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout<<cost.count()<<std::endl;
     return {};
   } catch (const std::exception& e) {
     return std::unexpected(std::string("Failed to send verification email: ") + e.what());

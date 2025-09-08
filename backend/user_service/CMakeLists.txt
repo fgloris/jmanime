@@ -55,24 +55,8 @@ target_include_directories(${PROJECT_NAME}_client PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME}_client PRIVATE
+  ${MYSQLCLIENT_LIBRARIES}
   protobuf::libprotobuf
   gRPC::grpc
   gRPC::grpc++
-)
-
-
-add_executable(testmail testmail.cpp ${COMMON_SOURCES} ${SOURCES})
-
-target_include_directories(testmail PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${Boost_INCLUDE_DIRS}
-  ${UUID_INCLUDE_DIRS}
-)
-
-target_link_libraries(testmail PRIVATE
-  ${Boost_LIBRARIES}
-  ${MYSQLCLIENT_LIBRARIES}
-  gRPC::grpc
-  jwt-cpp
-  uuid
 )

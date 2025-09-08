@@ -1,35 +1,26 @@
 #include "mysql_user_repository.hpp"
+#include "common/config.hpp"
+#include "common/mysql_connection_pool.hpp"
 #include <cassert>
 #include <cppconn/prepared_statement.h>
+#include <memory>
 #include <uuid/uuid.h>
 #include <cstring>
 
 namespace user_service {
 
-MysqlUserRepository::MysqlUserRepository(const std::string& host, const std::string& user,
-                                       const std::string& password, const std::string& database) {
-  conn_ = mysql_init(nullptr);
-  // 设置字符集为 utf8mb4
-  mysql_options(conn_, MYSQL_SET_CHARSET_NAME, "utf8mb4");
-  
-  if (!mysql_real_connect(conn_, host.c_str(), user.c_str(), password.c_str(),
-                         database.c_str(), 0, nullptr, 0)) {
-    throw std::runtime_error(mysql_error(conn_));
-  }
-}
-
-MysqlUserRepository::~MysqlUserRepository() {
-  if (conn_) {
-    mysql_close(conn_);
-  }
+MysqlUserRepository::MysqlUserRepository(): pool_(std::make_shared<common::MySQLConnectionPool>()) {
+  auto db_config = config::Config::getInstance().getDatabase();
 }
 
 bool MysqlUserRepository::save(const User& user) {
   const char* query = "INSERT INTO users (id, email, username, password_hash, salt, avatar) "
                      "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE "
                      "email=?, username=?, password_hash=?, salt=?, avatar=?";
-  
-  MYSQL_STMT* stmt = mysql_stmt_init(conn_);
+
+  common::MySQLConnectionGuard conn_guard(*pool_);
+
+  MYSQL_STMT* stmt = mysql_stmt_init(conn_guard.get());
   if (!stmt) {
     return false;
   }
@@ -68,7 +59,8 @@ std::optional<User> MysqlUserRepository::findById(const std::string& id) {
   const char* query = "SELECT id, email, username, password_hash, salt, avatar "
                      "FROM users WHERE id = ?";
   
-  MYSQL_STMT* stmt = mysql_stmt_init(conn_);
+  common::MySQLConnectionGuard conn_guard(*pool_);
+  MYSQL_STMT* stmt = mysql_stmt_init(conn_guard.get());
   if (!stmt) {
     return std::nullopt;
   }
@@ -159,7 +151,8 @@ std::optional<User> MysqlUserRepository::findByEmail(const std::string& email) {
   const char* query = "SELECT id, email, username, password_hash, salt, avatar "
                      "FROM users WHERE email = ?";
   
-  MYSQL_STMT* stmt = mysql_stmt_init(conn_);
+  common::MySQLConnectionGuard conn_guard(*pool_);
+  MYSQL_STMT* stmt = mysql_stmt_init(conn_guard.get());
   if (!stmt) {
     return std::nullopt;
   }

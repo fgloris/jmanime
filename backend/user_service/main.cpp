@@ -10,21 +10,14 @@
 int main(int argc, char** argv) {
   try {
     const auto& cfg = config::Config::getInstance();
-    const auto& db_config = cfg.getDatabase();
     const auto& service_config = cfg.getUserService();
-    const auto& auth_config = cfg.getAuth();
     
     // 构建服务地址
     std::stringstream server_address;
     server_address << service_config.host << ":" << service_config.port;
 
     // 初始化存储层
-    auto repository = std::make_shared<user_service::MysqlUserRepository>(
-      db_config.host,
-      db_config.user,
-      db_config.password,
-      db_config.db_name
-    );
+    auto repository = std::make_shared<user_service::MysqlUserRepository>();
 
     // 初始化认证服务
     auto auth_service = std::make_shared<user_service::AuthService>(

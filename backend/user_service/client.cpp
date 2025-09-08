@@ -127,14 +127,18 @@ int main(int argc, char** argv) {
   std::string token;
 
   // Test registration
-  if (!client.sendEmail("19902512605@163.com").empty()){
-    if (!client.Register("19902512605@163.com", "testuser", "1234566", "avatar.jpg").empty()) {
+  if (client.sendEmail("3474661396@qq.com").empty()){
+    if (auto message = client.Register("3474661396@qq.com", "testuser", "1234567", "avatar.jpg"); !message.empty()) {
+      std::cout<<"register success!"<<std::endl;
       // Test login
-      if (const auto token = client.Login("19902512605@163.com", "1234567");!token.empty()) {
+      if (const auto token = client.Login("3474661396@qq.com", "1234567");!token.empty()) {
         // Get token from login response and validate it
         // Note: In real usage, you would save the token from the response
+        std::cout<<token<<std::endl;
         client.ValidateToken(token);
       }
+    }else{
+      std::cout<<"register failed!"<<message<<std::endl;
     }
   }
 

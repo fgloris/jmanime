@@ -4,16 +4,19 @@
 namespace config {
   
   Config::Config() {
+    db_cp_ = {
+      .min_connections = 1,
+      .max_connections = 2,
+      .timeout = std::chrono::milliseconds(5000),
+      .idle_timeout = std::chrono::seconds(600)
+    },
+
     database_ = {
       .host = "localhost",
       .user = "root",
       .password = "114472988",
       .db_name = "jmanime_db",
       .charset = "utf8mb4",
-      .min_connections = 5,
-      .max_connections = 20,
-      .timeout = std::chrono::milliseconds(5000),
-      .idle_timeout = std::chrono::seconds(600)
     };
 
     user_service_ = {

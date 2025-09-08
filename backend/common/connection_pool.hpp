@@ -1,40 +1,44 @@
 #pragma once
 
-#include "common/config.hpp"
-#include <mysql/mysql.h>
-#include <queue>
+#include <memory>
 #include <mutex>
 #include <condition_variable>
-#include <memory>
 #include <atomic>
+#include <queue>
+#include <iostream>
+
+#include "common/config.hpp"
 
 namespace common {
 
 // RAII: 构造建立一个mysql连接, 析构时自动结束连接
-struct MySQLConnection {
-  MySQLConnection(MYSQL* conn): conn_(conn) {}
-  ~MySQLConnection() { if (conn_) mysql_close(conn_); }
+class Connection {
+public:
+  virtual ~Connection() {std::cout<<"base destroyed!"<<std::endl;};
+  virtual bool isValid() const = 0;
   
-  MYSQL* get() const { return conn_; }
-  bool isValid() const;
+  Connection(const Connection&) = delete;
+  Connection& operator=(const Connection&) = delete;
   
-  MySQLConnection(const MySQLConnection&) = delete;
-  MySQLConnection& operator=(const MySQLConnection&) = delete;
-  
-  MySQLConnection(MySQLConnection&& other): conn_(other.conn_) {other.conn_ = nullptr; }
-  MySQLConnection& operator=(MySQLConnection&& other) noexcept;
-
-  MYSQL* conn_;
+  Connection() = default;
+  Connection(Connection&&) = default;
+  Connection& operator=(Connection&&) = default;
 };
 
+
+/*
+  池子内连接数 = 空闲可用的连接数 (更新时使 池子内连接数 <= min_connections)
+  活跃连接数 = 正在被外部使用的连接数
+  总连接数 = 池子内连接数 + 活跃连接数 <= max_connections
+*/
 class ConnectionPool {
 public:
-  ConnectionPool();
+  ConnectionPool(const config::ConnectionPoolConfig& cfg): cp_config_(cfg){};
   ~ConnectionPool();
   
-  std::unique_ptr<MySQLConnection> getConnectionFromPool();
+  std::unique_ptr<Connection> getConnectionFromPool();
   
-  void releaseConnection(std::unique_ptr<MySQLConnection> conn);
+  void returnConnection(std::unique_ptr<Connection> conn);
   
   size_t activeConnections() const { return active_connections_; }
   size_t availableConnections() const;
@@ -42,39 +46,38 @@ public:
   ConnectionPool(const ConnectionPool&) = delete;
   ConnectionPool& operator=(const ConnectionPool&) = delete;
 
-private:
-  config::DatabaseConfig db_config_;
-  std::queue<std::unique_ptr<MySQLConnection>> pool_;
+protected:
+  virtual std::unique_ptr<Connection> createConnection() = 0;
+
+  bool validateConnection(Connection* conn);
+
+  void cleanupIdleConnections();
+
+  config::ConnectionPoolConfig cp_config_;
+  std::queue<std::unique_ptr<Connection>> pool_;
   mutable std::mutex mutex_;
   std::condition_variable condition_;
   std::atomic<size_t> active_connections_{0};
   std::atomic<bool> shutdown_{false};
-  
-  std::unique_ptr<MySQLConnection> createConnection();
-  
-  bool validateConnection(MySQLConnection* conn);
-  
-  void cleanupIdleConnections();
 };
 
 // RAII: 构造时从连接池获取一个连接, 析构时自动将连接归还给连接池
 class ConnectionGuard {
 public:
   ConnectionGuard(ConnectionPool& pool) : pool_(pool) { conn_ = pool_.getConnectionFromPool(); }
-  ~ConnectionGuard() { if (conn_) pool_.releaseConnection(std::move(conn_)); }
+  ~ConnectionGuard() { if (conn_) pool_.returnConnection(std::move(conn_)); }
   
-  MySQLConnection* operator->() const { return conn_.get(); }
-  MySQLConnection& operator*() const { return *conn_; }
-  MYSQL* get() const { return conn_->get(); }
+  Connection* operator->() const { return conn_.get(); }
+  Connection& operator*() const { return *conn_; }
   
   bool valid() const { return conn_ != nullptr; }
   
   ConnectionGuard(const ConnectionGuard&) = delete;
   ConnectionGuard& operator=(const ConnectionGuard&) = delete;
     
-private:
+protected:
   ConnectionPool& pool_;
-  std::unique_ptr<MySQLConnection> conn_;
+  std::unique_ptr<Connection> conn_;
 };
 
 } // namespace common
