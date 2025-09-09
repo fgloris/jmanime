@@ -59,4 +59,5 @@ target_link_libraries(${PROJECT_NAME}_client PRIVATE
   protobuf::libprotobuf
   gRPC::grpc
   gRPC::grpc++
+  jwt-cpp
 )

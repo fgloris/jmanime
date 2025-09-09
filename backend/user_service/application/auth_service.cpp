@@ -1,17 +1,18 @@
 #include "auth_service.hpp"
 #include "common/config.hpp"
-#include "common/smtp_connection_pool.hpp"
 #include <cassert>
 #include <chrono>
 #include <openssl/err.h>
 #include <openssl/rand.h>
 #include <memory>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <string>
 
 namespace user_service {
 
 std::expected<std::string, std::string> AuthService::registerSendEmailVerificationCode(const std::string& email) {
-  if (!std::regex_match(email, email_pattern)){
+  if (!std::regex_match(email, email_pattern_)){
     return std::unexpected("Email format invalid");
   }
   auto res_code = generateVerificationCode(email);
@@ -209,6 +210,8 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
     using namespace boost::asio;
     io_context io_context;
 
+    std::cout<<"creating ssl context!"<<std::endl;
+
     ssl::context ssl_context(ssl::context::tlsv13);
     ssl_context.set_default_verify_paths();
     ssl_context.set_verify_mode(ssl::verify_peer);
@@ -218,6 +221,7 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
     
     auto socket = std::make_shared<ssl::stream<ip::tcp::socket>>(io_context, ssl_context);
 
+    std::cout<<"creating connecton!"<<std::endl;
     connect(socket->lowest_layer(), endpoints);
     socket->handshake(boost::asio::ssl::stream_base::client);
 
@@ -245,62 +249,63 @@ std::expected<void, std::string> AuthService::sendEmailVerificationCode(const st
       return success;
     };
 
+    std::cout<<"start smtp handshake!"<<std::endl;
     // 1. 等待服务器的欢迎消息 (220)
     if (!read_response("220")) {
-        return std::unexpected("Failed to receive welcome message");
+      return std::unexpected("Failed to receive welcome message");
     }
 
     // 2. 发送 EHLO 命令
     std::string ehlo_cmd = "EHLO " + smtpConfig.server + "\r\n";
     write(*socket, buffer(ehlo_cmd));
     if (!read_response("250")) {
-        return std::unexpected("Failed to send EHLO command");
+      return std::unexpected("Failed to send EHLO command");
     }
 
     // 3. 发送 AUTH LOGIN 命令
     std::string auth_login_cmd = "AUTH LOGIN\r\n";
     write(*socket, buffer(auth_login_cmd));
     if (!read_response("334")) {
-        return std::unexpected("Failed to send AUTH LOGIN command");
+      return std::unexpected("Failed to send AUTH LOGIN command");
     }
 
     // 4. 发送 Base64 编码的用户名
     std::string username_base64 = base64_encode(smtpConfig.from_email);
     write(*socket, buffer(username_base64 + "\r\n"));
     if (!read_response("334")) {
-        return std::unexpected("Failed to send username");
+      return std::unexpected("Failed to send username");
     }
 
     // 5. 发送 Base64 编码的密码
     std::string password_base64 = base64_encode(smtpConfig.password);
     write(*socket, buffer(password_base64 + "\r\n"));
     if (!read_response("235")) {
-        return std::unexpected("Failed to authenticate");
+      return std::unexpected("Failed to authenticate");
     }
 
     // 6. 发送 MAIL FROM 命令
     std::string mail_from_cmd = "MAIL FROM:<" + smtpConfig.from_email + ">\r\n";
     write(*socket, buffer(mail_from_cmd));
     if (!read_response("250")) {
-        return std::unexpected("Failed to set sender");
+      return std::unexpected("Failed to set sender");
     }
 
     // 7. 发送 RCPT TO 命令
     std::string rcpt_to_cmd = "RCPT TO:<" + email + ">\r\n";
     write(*socket, buffer(rcpt_to_cmd));
     if (!read_response("250")) {
-        return std::unexpected("Failed to set recipient");
+      return std::unexpected("Failed to set recipient");
     }
 
     // 8. 发送 DATA 命令
     std::string data_cmd = "DATA\r\n";
     write(*socket, buffer(data_cmd));
     if (!read_response("354")) {
-        return std::unexpected("Failed to send DATA command");
+      return std::unexpected("Failed to send DATA command");
     }
 
     // 9. 发送邮件内容
-    std::string email_body = "From: " + smtpConfig.from_email + "\r\n"
+    std::string email_body = "From: " + smtpConfig.email_sender_name + "\r\n"
                           + "To: " + email + "\r\n"
                           + "Subject: Email Verification Code\r\n"
                           + "MIME-Version: 1.0\r\n"

@@ -2,10 +2,6 @@
 #include <optional>
 #include "domain/user.hpp"
 
-namespace common {
-class ConnectionPool;
-}
-
 namespace user_service {
 class UserRepository {
 public:

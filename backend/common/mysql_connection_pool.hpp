@@ -12,7 +12,7 @@ class MySQLConnection : public Connection {
 public:
   MySQLConnection();
   MySQLConnection(MYSQL* conn): conn_(conn) {}
-  ~MySQLConnection() override { std::cout<<"destroyed!"<<std::endl; if (conn_) mysql_close(conn_); }
+  ~MySQLConnection() override { std::cout<<"mysql connection destroyed!"<<std::endl; if (conn_) mysql_close(conn_); }
   
   MYSQL* get() const { return conn_; }
   bool isValid() const override;

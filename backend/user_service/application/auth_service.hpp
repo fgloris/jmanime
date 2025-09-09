@@ -11,7 +11,7 @@ namespace user_service {
 class AuthService {
 public:
   AuthService(std::shared_ptr<UserRepository> repository)
-    : repository_(repository), email_pattern("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
+    : repository_(repository), email_pattern_("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
 	"@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$") {}
 
   // return token, user struct
@@ -38,6 +38,6 @@ private:
 
   std::shared_ptr<UserRepository> repository_;
   std::string createToken(const std::string& user_id);
-  std::regex email_pattern;
+  std::regex email_pattern_;
 };
 }

@@ -1,0 +1,4 @@
+wrk.method = "POST"
+wrk.body = '{"email": "19902512605@163.com"}'
+wrk.headers["Content-Type"] = "application/json"
+

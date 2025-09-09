@@ -63,7 +63,6 @@ std::unique_ptr<Connection> ConnectionPool::getConnectionFromPool() {
 
 void ConnectionPool::returnConnection(std::unique_ptr<Connection> conn) {
   if (!conn) return;
-  
   std::lock_guard<std::mutex> lock(mutex_);
   
   active_connections_.fetch_sub(1);
@@ -73,7 +72,6 @@ void ConnectionPool::returnConnection(std::unique_ptr<Connection> conn) {
   } else {
     pool_.push(std::move(conn));
   }
-  
   condition_.notify_one();
 }
 

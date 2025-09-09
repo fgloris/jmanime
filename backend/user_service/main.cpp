@@ -1,9 +1,12 @@
 #include <iostream>
 #include <memory>
+#include <thread>
 #include <grpcpp/grpcpp.h>
+#include <boost/asio.hpp>
 #include "infrastructure/mysql_user_repository.hpp"
 #include "application/auth_service.hpp"
 #include "interface/user_service_impl.hpp"
+#include "interface/rest_api_handler.hpp"
 #include "common/config.hpp"
 #include <sstream>
 
@@ -12,9 +15,9 @@ int main(int argc, char** argv) {
     const auto& cfg = config::Config::getInstance();
     const auto& service_config = cfg.getUserService();
     
-    // 构建服务地址
-    std::stringstream server_address;
-    server_address << service_config.host << ":" << service_config.port;
+    // 构建gRPC服务地址
+    std::stringstream grpc_server_address;
+    grpc_server_address << service_config.host << ":" << service_config.port;
 
     // 初始化存储层
     auto repository = std::make_shared<user_service::MysqlUserRepository>();
@@ -25,16 +28,44 @@ int main(int argc, char** argv) {
     );
 
     // 初始化gRPC服务
-    user_service::UserServiceImpl service(auth_service);
+    user_service::UserServiceImpl grpc_service(auth_service);
 
     grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address.str(), grpc::InsecureServerCredentials());
-    builder.RegisterService(&service);
+    builder.AddListeningPort(grpc_server_address.str(), grpc::InsecureServerCredentials());
+    builder.RegisterService(&grpc_service);
     
-    std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-    std::cout << "Server listening on " << server_address.str() << std::endl;
+    std::unique_ptr<grpc::Server> grpc_server(builder.BuildAndStart());
+    std::cout << "gRPC Server listening on " << grpc_server_address.str() << std::endl;
 
-    server->Wait();
+    // 启动REST API服务器
+    boost::asio::io_context ioc{1};
+    
+    // HTTP服务器监听在不同端口 (gRPC端口 + 1000)
+    auto http_port = service_config.port + 1000;
+    auto http_endpoint = boost::asio::ip::tcp::endpoint{
+      boost::asio::ip::make_address(service_config.host), 
+      static_cast<unsigned short>(http_port)
+    };
+    
+    user_service::HttpServer http_server{ioc, http_endpoint, auth_service};
+    
+    std::cout << "HTTP Server listening on " << service_config.host << ":" << http_port << std::endl;
+    
+    // 在单独线程运行HTTP服务器
+    std::thread http_thread([&ioc, &http_server]() {
+      http_server.run();
+      ioc.run();
+    });
+
+    // 主线程运行gRPC服务器
+    grpc_server->Wait();
+    
+    // 停止HTTP服务器
+    ioc.stop();
+    if (http_thread.joinable()) {
+      http_thread.join();
+    }
+    
     return 0;
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;

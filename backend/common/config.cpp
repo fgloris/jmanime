@@ -5,8 +5,8 @@ namespace config {
   
   Config::Config() {
     db_cp_ = {
-      .min_connections = 1,
-      .max_connections = 2,
+      .min_connections = 4,
+      .max_connections = 16,
       .timeout = std::chrono::milliseconds(5000),
       .idle_timeout = std::chrono::seconds(600)
     },
@@ -51,6 +51,8 @@ namespace config {
       .port = 465,
       .password = "PDV3DvKnMmaYUA5p",
       .from_email = "19313199238@163.com",
+      .email_sender_name = "jmanime",
+      .queue_max_size = 100,
     };
 
     storage_path_ = "/home/ginger/Videos/jmanime";
