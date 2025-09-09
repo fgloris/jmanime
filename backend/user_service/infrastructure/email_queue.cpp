@@ -1,6 +1,8 @@
 #include "email_queue.hpp"
+#include <expected>
 #include <memory>
 #include <iostream>
+#include <string>
 
 namespace user_service {
   SMTPEmailQueue::SMTPEmailQueue() : cfg_(config::Config::getInstance().getSMTP()), capacity_(cfg_.queue_max_size),
@@ -68,8 +70,8 @@ namespace user_service {
         continue;
       }
 
-      bool success = sendEmail(data_[head_]);
-      if (!success) std::cout<<"send email failed!"<<std::endl;
+      auto ret = sendEmail(data_[head_]);
+      bool success = ret.has_value();
       data_[head_].prom.set_value(success);
       head_ = (head_ + 1) % capacity_;
     }
@@ -141,50 +143,50 @@ namespace user_service {
     connected_ = false;
   }
   
-  bool SMTPEmailQueue::readResponse(const std::string& expected_code) {
+int SMTPEmailQueue::readResponse() {
     std::string response_line;
     boost::asio::streambuf response;
-    bool success = false;
+    std::string full_response;
     do {
       boost::asio::read_until(*socket_, response, "\r\n");
       std::istream is(&response);
       std::getline(is, response_line);
+      full_response += response_line;
       
       if (response_line.length() >= 4 && response_line.at(3) == '-') {
         continue;
       } else {
-        success = response_line.substr(0, 3) == expected_code;
-        break;
+        int result = std::stoi(response_line.substr(0, 3));
+        return result;
       }
     } while (true);
-    return success;
   }
 
   bool SMTPEmailQueue::performSMTPHandshake() {
     try {
       
       // 等待服务器欢迎消息
-      if (!readResponse("220")) return false;
+      if (readResponse() != 220) return false;
       
       // EHLO
       std::string ehlo_cmd = "EHLO " + cfg_.server + "\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(ehlo_cmd));
-      if (!readResponse("250")) return false;
+      if (readResponse() != 250) return false;
       
       // AUTH LOGIN
       std::string auth_login_cmd = "AUTH LOGIN\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(auth_login_cmd));
-      if (!readResponse("334")) return false;
+      if (readResponse() != 334) return false;
       
       // 用户名
       std::string username_base64 = base64_encode(cfg_.from_email);
       boost::asio::write(*socket_, boost::asio::buffer(username_base64 + "\r\n"));
-      if (!readResponse("334")) return false;
+      if (readResponse() != 334) return false;
       
       // 密码
       std::string password_base64 = base64_encode(cfg_.password);
       boost::asio::write(*socket_, boost::asio::buffer(password_base64 + "\r\n"));
-      if (!readResponse("235")) return false;
+      if (readResponse() != 235) return false;
       
       return true;
     } catch (const std::exception& e) {
@@ -217,10 +219,9 @@ namespace user_service {
     return out;
   }
 
-  bool SMTPEmailQueue::sendEmail(EmailTask& task) {
-    std::cout<<"start to send..."<<std::endl;
+  std::expected<void, std::string> SMTPEmailQueue::sendEmail(EmailTask& task) {
     if (!connected_ || !socket_) {
-      return false;
+      return std::unexpected<std::string>("connection not valid");
     }
 
     
@@ -230,17 +231,23 @@ namespace user_service {
       // MAIL FROM
       std::string mail_from_cmd = "MAIL FROM:<" + cfg_.from_email + ">\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(mail_from_cmd));
-      if (!readResponse("250")) return false;
+      int ret_code = readResponse();
+      if (ret_code != 250) {
+        if (ret_code == 451){
+          return std::unexpected<std::string>("Mail From message send failed, ret code:" + std::to_string(ret_code) + "smtp server refuses to recieve trash mails");
+        }
+        return std::unexpected<std::string>("Mail From message send failed, ret code:" + std::to_string(ret_code));
+      }
       
       // RCPT TO
       std::string rcpt_to_cmd = "RCPT TO:<" + task.to_email + ">\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(rcpt_to_cmd));
-      if (!readResponse("250")) return false;
+      if (int ret_code = readResponse() != 250) return std::unexpected<std::string>("Rcpt To message send failed, ret code:" + std::to_string(ret_code));
       
       // DATA
       std::string data_cmd = "DATA\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(data_cmd));
-      if (!readResponse("354")) return false;
+      if (int ret_code = readResponse() != 354) return std::unexpected<std::string>("Data message send failed, ret code:" + std::to_string(ret_code));
       
       // 邮件内容
       std::string email_body = "From: " + cfg_.email_sender_name + "\r\n"
@@ -251,15 +258,13 @@ namespace user_service {
                             + "\r\n"
                             + task.body + "\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(email_body + "\r\n.\r\n"));
-      if (!readResponse("250")) return false;
+      if (int ret_code = readResponse() != 250) return std::unexpected<std::string>("Email Body message send failed, ret code:" + std::to_string(ret_code));
       
-      std::cout<<"send successfull!"<<std::endl;
-      return true;
+      return {};
     } catch (const std::exception& e) {
       // 连接可能断开，标记为未连接
       connected_ = false;
-      return false;
+      return std::unexpected<std::string>("Connection error");
     }
-    return true;
   }
 }

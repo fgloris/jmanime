@@ -5,6 +5,7 @@
 #include <condition_variable>
 #include <chrono>
 #include <cstddef>
+#include <expected>
 #include <future>
 #include <mutex>
 #include <thread>
@@ -72,10 +73,10 @@ private:
   bool connect();
   void disconnect();
   bool performSMTPHandshake();
-  bool readResponse(const std::string& expected_code);
+  int readResponse();
 
   std::string base64_encode(const std::string& in);
-  bool sendEmail(EmailTask& task);
+  std::expected<void, std::string> sendEmail(EmailTask& task);
 
 };
 }
