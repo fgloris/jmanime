@@ -6,12 +6,14 @@
 #include <uuid.h>
 #include "domain/user.hpp"
 #include "domain/user_repository.hpp"
+#include "domain/email_sender.hpp"
 
 namespace user_service {
 class AuthService {
 public:
-  AuthService(std::shared_ptr<UserRepository> repository)
-    : repository_(repository), email_pattern_("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
+  AuthService(std::shared_ptr<UserRepository> repository, std::shared_ptr<EmailSender> email_sender)
+    : repository_(repository), email_sender_(email_sender),
+      email_pattern_("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
 	"@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$") {}
 
   // return token, user struct
@@ -37,6 +39,7 @@ private:
   std::expected<std::string, std::string> loadVerificationCodeFromDB(const std::string& email);
 
   std::shared_ptr<UserRepository> repository_;
+  std::shared_ptr<EmailSender> email_sender_;
   std::string createToken(const std::string& user_id);
   std::regex email_pattern_;
 };

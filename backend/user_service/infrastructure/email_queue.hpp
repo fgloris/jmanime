@@ -8,6 +8,10 @@
 #include <future>
 #include <mutex>
 #include <thread>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <string>
+#include <openssl/err.h>
 
 namespace user_service {
 
@@ -29,9 +33,8 @@ struct EmailTask {
   }
 };
 
-template <size_t Capacity>
 // 场景：单个消费者，消费任务；多个生产者，生产任务
-class SMTPEmailQueue final: EmailSender{
+class SMTPEmailQueue final: public EmailSender{
 private:
   config::SMTPConfig cfg_;
   size_t capacity_;
@@ -39,64 +42,40 @@ private:
   std::condition_variable condition_;
   std::atomic_bool stop_{false};
   std::jthread thread_;
-  std::array<EmailTask, Capacity> data_;
+  std::allocator<EmailTask> alloc_;
+  EmailTask* data_;
   // (pos=Capacity) new task (pos=tail) >> tail >> head >> worker (pos=0)
   // head和tail只会增加，tail位置还没有元素
   alignas(64) size_t head_{0};
   alignas(64) std::atomic<size_t> tail_{0};
   
-public:
-  SMTPEmailQueue() : cfg_(config::Config::getInstance().getSMTP()), capacity_(Capacity){
-
-  }
+  // SMTP连接相关
+  boost::asio::io_context io_context_;
+  boost::asio::ssl::context ssl_context_;
+  std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> socket_;
+  bool connected_{false};
   
-  ~SMTPEmailQueue() = default;
+public:
+  SMTPEmailQueue();
+  ~SMTPEmailQueue();
 
-  bool available() override {
-    return (tail_.load(std::memory_order_acquire) + 1) % capacity_ != head_;
-  }
+  void stop();
 
-  bool empty() override {
-    return head_ == tail_.load(std::memory_order_acquire);
-  }
+  bool available() override;
+  bool empty() override;
 
-  std::future<bool> addTask(const std::string& to_email, const std::string& subject, const std::string& body) {
-    if (!available()) {
-      std::promise<bool> p;
-      p.set_value(false);
-      return p.get_future();
-    }
-    EmailTask task(to_email, subject, body);
-    size_t pos = tail_.load(std::memory_order_relaxed);
-    while (!tail_.compare_exchange_weak(pos, (pos + 1)%capacity_ , std::memory_order_relaxed)){
-      pos = tail_.load(std::memory_order_relaxed);
-    }
-    data_[pos] = std::move(task);
-    data_[pos].ready.store(true, std::memory_order_release);
-    condition_.notify_one();
-    return data_[pos].prom.get_future();
-  }
+  std::future<bool> addTask(const std::string& to_email, const std::string& subject, const std::string& body) override;
+  void loop();
 
-  void loop(){
-    while (true) {
-      std::unique_lock<std::mutex> lock{mtx};
-      condition_.wait(lock, [this]() -> bool {
-        return stop_.load(std::memory_order_acquire) || 
-          ((!empty()) && data_[head_].ready.load(std::memory_order_acquire));
-      });// 等待条件变量被唤醒，若任务为空且线程池未被关闭则继续等待
+private:
+  bool ensureConnection();
+  bool connect();
+  void disconnect();
+  bool performSMTPHandshake();
+  bool readResponse(const std::string& expected_code);
 
-      if (stop_.load(std::memory_order_acquire) && empty()) {
-        break;
-      }
-
-      sendEmail(data_[head_++]);
-    }
-  }
-
-  bool sendEmail(EmailTask& task){
-    
-    task.prom.set_value(true);
-  }
+  std::string base64_encode(const std::string& in);
+  bool sendEmail(EmailTask& task);
 
 };
 }

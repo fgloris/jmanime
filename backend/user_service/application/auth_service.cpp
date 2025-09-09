@@ -4,10 +4,6 @@
 #include <chrono>
 #include <openssl/err.h>
 #include <openssl/rand.h>
-#include <memory>
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
-#include <string>
 
 namespace user_service {
 
@@ -177,183 +173,31 @@ std::string AuthService::createToken(const std::string& user_id) {
     .sign(jwt::algorithm::hs256{auth.jwt_secret});
 }
 
-std::string base64_encode(const std::string& in) {
-  std::string out;
-  int val = 0, valb = -6;
-  const std::string base64_chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "abcdefghijklmnopqrstuvwxyz"
-      "0123456789+/";
+
+std::expected<void, std::string> AuthService::sendEmailVerificationCode(const std::string& email, const std::string& code) {
+  if (!email_sender_) {
+    return std::unexpected("Email sender not available");
+  }
   
-  for (char c : in) {
-    val = (val << 8) + static_cast<unsigned char>(c);
-    valb += 8;
-    while (valb >= 0) {
-      out.push_back(base64_chars[(val >> valb) & 0x3F]);
-      valb -= 6;
-    }
+  if (!email_sender_->available()) {
+    return std::unexpected("Email queue is full");
   }
-  if (valb > -6) {
-    out.push_back(base64_chars[((val << 8) >> (valb + 8)) & 0x3F]);
-  }
-  while (out.size() % 4) {
-    out.push_back('=');
-  }
-  return out;
-}
-
-std::expected<void, std::string> AuthService::sendEmailVerificationCode(const std::string& email, const std::string& code){
-
-  try {
-    auto start = std::chrono::steady_clock::now();
-    const auto& smtpConfig = config::Config::getInstance().getSMTP();
-    using namespace boost::asio;
-    io_context io_context;
-
-    std::cout<<"creating ssl context!"<<std::endl;
-
-    ssl::context ssl_context(ssl::context::tlsv13);
-    ssl_context.set_default_verify_paths();
-    ssl_context.set_verify_mode(ssl::verify_peer);
-
-    ip::tcp::resolver resolver(io_context);
-    ip::tcp::resolver::results_type endpoints = resolver.resolve(smtpConfig.server, std::to_string(smtpConfig.port));
-    
-    auto socket = std::make_shared<ssl::stream<ip::tcp::socket>>(io_context, ssl_context);
-
-    std::cout<<"creating connecton!"<<std::endl;
-    connect(socket->lowest_layer(), endpoints);
-    socket->handshake(boost::asio::ssl::stream_base::client);
-
-    streambuf response;
-    std::string response_line;
-
-    auto read_response = [&](const std::string& expected_code) -> bool {
-      std::string response_line;
-      std::string full_response;
-      bool success = false;
-      do {
-        read_until(*socket, response, "\r\n");
-        std::istream is(&response);
-        std::getline(is, response_line);
-        full_response += response_line + "\n";
-        
-        if (response_line.length() >= 4 && response_line.at(3) == '-') {
-          continue;
-        } else {
-          success = response_line.substr(0, 3) == expected_code;
-          break;
-        }
-      } while (true);
-      std::cout << "Server response: \n" << full_response << std::endl;
-      return success;
-    };
-
-    std::cout<<"start smtp handshake!"<<std::endl;
-    // 1. 等待服务器的欢迎消息 (220)
-    if (!read_response("220")) {
-      return std::unexpected("Failed to receive welcome message");
+  
+  std::string subject = "Email Verification Code";
+  std::string body = "Your verification code is: " + code;
+  
+  auto future = email_sender_->addTask(email, subject, body);
+  
+  // 等待邮件发送结果（可以设置超时）
+  if (future.wait_for(std::chrono::seconds(30)) == std::future_status::ready) {
+    bool success = future.get();
+    if (success) {
+      return {};
+    } else {
+      return std::unexpected("Failed to send verification email");
     }
-
-    // 2. 发送 EHLO 命令
-    std::string ehlo_cmd = "EHLO " + smtpConfig.server + "\r\n";
-    write(*socket, buffer(ehlo_cmd));
-    if (!read_response("250")) {
-      return std::unexpected("Failed to send EHLO command");
-    }
-
-    // 3. 发送 AUTH LOGIN 命令
-    std::string auth_login_cmd = "AUTH LOGIN\r\n";
-    write(*socket, buffer(auth_login_cmd));
-    if (!read_response("334")) {
-      return std::unexpected("Failed to send AUTH LOGIN command");
-    }
-
-    // 4. 发送 Base64 编码的用户名
-    std::string username_base64 = base64_encode(smtpConfig.from_email);
-    write(*socket, buffer(username_base64 + "\r\n"));
-    if (!read_response("334")) {
-      return std::unexpected("Failed to send username");
-    }
-
-    // 5. 发送 Base64 编码的密码
-    std::string password_base64 = base64_encode(smtpConfig.password);
-    write(*socket, buffer(password_base64 + "\r\n"));
-    if (!read_response("235")) {
-      return std::unexpected("Failed to authenticate");
-    }
-
-    // 6. 发送 MAIL FROM 命令
-    std::string mail_from_cmd = "MAIL FROM:<" + smtpConfig.from_email + ">\r\n";
-    write(*socket, buffer(mail_from_cmd));
-    if (!read_response("250")) {
-      return std::unexpected("Failed to set sender");
-    }
-
-    // 7. 发送 RCPT TO 命令
-    std::string rcpt_to_cmd = "RCPT TO:<" + email + ">\r\n";
-    write(*socket, buffer(rcpt_to_cmd));
-    if (!read_response("250")) {
-      return std::unexpected("Failed to set recipient");
-    }
-
-    // 8. 发送 DATA 命令
-    std::string data_cmd = "DATA\r\n";
-    write(*socket, buffer(data_cmd));
-    if (!read_response("354")) {
-      return std::unexpected("Failed to send DATA command");
-    }
-
-    // 9. 发送邮件内容
-    std::string email_body = "From: " + smtpConfig.email_sender_name + "\r\n"
-                          + "To: " + email + "\r\n"
-                          + "Subject: Email Verification Code\r\n"
-                          + "MIME-Version: 1.0\r\n"
-                          + "Content-Type: text/plain; charset=utf-8\r\n"
-                          + "\r\n"
-                          + "Your verification code is: " + code + "\r\n";
-    write(*socket, buffer(email_body + "\r\n.\r\n"));
-    if (!read_response("250")) {
-        return std::unexpected("Failed to send email body");
-    }
-
-    // 10. 发送 QUIT 命令并关闭连接
-    std::string quit_cmd = "QUIT\r\n";
-    write(*socket, buffer(quit_cmd));
-    read_response("221");
-
-    // 不等待对方服务器相应的关闭SSL连接方式
-    // 正确关闭SSL连接 - 不等待对端close_notify响应的关闭方式
-    boost::system::error_code shutdown_ec, write_ec;
-    
-    // 启动异步shutdown操作，发送一个close_notify，并关闭本侧SSL写入端，异步等待另一侧服务器的close_notify
-    socket->async_shutdown([&shutdown_ec, socket](const boost::system::error_code& ec) {
-        shutdown_ec = ec;
-    });
-    
-    // 启动一个异步写操作，用于在本侧SSL写入端关闭时触发底层tcp连接关闭
-    const char dummy_buffer[] = "\0";
-    async_write(*socket, buffer(dummy_buffer, 1), 
-                [&write_ec, socket](const boost::system::error_code& ec, std::size_t) {
-      write_ec = ec;
-      // 检查是否是SSL协议关闭错误，如果是，代表async_shutdown已经关闭本侧SSL写入端
-      if ((ec.category() == boost::asio::error::get_ssl_category()) &&
-          (SSL_R_PROTOCOL_IS_SHUTDOWN == ERR_GET_REASON(ec.value()))) {
-          // 关闭底层tcp连接，这会取消shutdown操作对另一侧的close_notify的等待
-          socket->lowest_layer().close();
-      }
-    });
-
-    // 运行io_context直到所有操作完成或被取消
-    io_context.run();
-
-    socket.reset();
-    auto end = std::chrono::steady_clock::now();
-    auto cost = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout<<cost.count()<<std::endl;
-    return {};
-  } catch (const std::exception& e) {
-    return std::unexpected(std::string("Failed to send verification email: ") + e.what());
+  } else {
+    return std::unexpected("Email sending timeout");
   }
 }
 }

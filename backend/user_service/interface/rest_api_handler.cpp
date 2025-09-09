@@ -83,9 +83,7 @@ http::response<http::string_body> RestApiHandler::handleValidateEmail(const nloh
     }
     
     std::string email = body["email"];
-    std::cout<<"entering:"<<std::endl;
     auto result = auth_service_->registerSendEmailVerificationCode(email);
-    std::cout<<"end successfull!"<<std::endl;
     
     if (result) {
       nlohmann::json response_json = {

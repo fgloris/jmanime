@@ -3,6 +3,7 @@
 #include <thread>
 #include <grpcpp/grpcpp.h>
 #include <boost/asio.hpp>
+#include "infrastructure/email_queue.hpp"
 #include "infrastructure/mysql_user_repository.hpp"
 #include "application/auth_service.hpp"
 #include "interface/user_service_impl.hpp"
@@ -22,9 +23,11 @@ int main(int argc, char** argv) {
     // 初始化存储层
     auto repository = std::make_shared<user_service::MysqlUserRepository>();
 
+    auto email_sender = std::make_shared<user_service::SMTPEmailQueue>();
+
     // 初始化认证服务
     auto auth_service = std::make_shared<user_service::AuthService>(
-      repository
+      repository, email_sender
     );
 
     // 初始化gRPC服务
