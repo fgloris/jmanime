@@ -150,11 +150,14 @@ namespace user_service {
       std::istream is(&response);
       std::getline(is, response_line);
       
-      if (response_line.substr(0, 3) == expected_code) {
-        return true;
+      if (response_line.length() >= 4 && response_line.at(3) == '-') {
+        continue;
+      } else {
+        success = response_line.substr(0, 3) == expected_code;
+        break;
       }
     } while (true);
-    return false;
+    return success;
   }
 
   bool SMTPEmailQueue::performSMTPHandshake() {
@@ -183,10 +186,6 @@ namespace user_service {
       boost::asio::write(*socket_, boost::asio::buffer(password_base64 + "\r\n"));
       if (!readResponse("235")) return false;
       
-      std::string mail_from_cmd = "MAIL FROM:<" + cfg_.from_email + ">\r\n";
-      boost::asio::write(*socket_, boost::asio::buffer(mail_from_cmd));
-      if (!readResponse("250")) return false;
-
       return true;
     } catch (const std::exception& e) {
       return false;
@@ -229,6 +228,9 @@ namespace user_service {
       boost::asio::streambuf response;
       
       // MAIL FROM
+      std::string mail_from_cmd = "MAIL FROM:<" + cfg_.from_email + ">\r\n";
+      boost::asio::write(*socket_, boost::asio::buffer(mail_from_cmd));
+      if (!readResponse("250")) return false;
       
       // RCPT TO
       std::string rcpt_to_cmd = "RCPT TO:<" + task.to_email + ">\r\n";
@@ -258,7 +260,6 @@ namespace user_service {
       connected_ = false;
       return false;
     }
-
     return true;
   }
 }
