@@ -28,9 +28,9 @@ http::response<http::string_body> RestApiHandler::handleRequest(
   std::string target = std::string(req.target());
   
   try {
-    if (target == "/api/auth/validate-email" && req.method() == http::verb::post) {
+    if (target == "/api/auth/register-validate-email" && req.method() == http::verb::post) {
       auto body = parseRequestBody(std::string(req.body()));
-      auto response = handleValidateEmail(body);
+      auto response = handleRegisterValidateEmail(body);
       addCorsHeaders(response);
       return response;
     }
@@ -40,9 +40,21 @@ http::response<http::string_body> RestApiHandler::handleRequest(
       addCorsHeaders(response);
       return response;
     }
-    else if (target == "/api/auth/login" && req.method() == http::verb::post) {
+    else if (target == "/api/auth/login-email-pwd" && req.method() == http::verb::post) {
       auto body = parseRequestBody(std::string(req.body()));
-      auto response = handleLogin(body);
+      auto response = handleLoginEmailPwd(body);
+      addCorsHeaders(response);
+      return response;
+    }
+    else if (target == "/api/auth/login-email-code" && req.method() == http::verb::post) {
+      auto body = parseRequestBody(std::string(req.body()));
+      auto response = handleLoginEmailCode(body);
+      addCorsHeaders(response);
+      return response;
+    }
+    else if (target == "/api/auth/login-validate-email" && req.method() == http::verb::post) {
+      auto body = parseRequestBody(std::string(req.body()));
+      auto response = handleLoginValidateEmail(body);
       addCorsHeaders(response);
       return response;
     }
@@ -76,14 +88,39 @@ http::response<http::string_body> RestApiHandler::handleRequest(
   }
 }
 
-http::response<http::string_body> RestApiHandler::handleValidateEmail(const nlohmann::json& body) {
+http::response<http::string_body> RestApiHandler::handleRegisterValidateEmail(const nlohmann::json& body) {
   try {
     if (!body.contains("email")) {
       return createErrorResponse(http::status::bad_request, "Missing email field");
     }
     
     std::string email = body["email"];
-    auto result = auth_service_->registerSendEmailVerificationCode(email);
+    auto result = auth_service_->sendAndSaveEmailVerificationCode(email, "register");
+    
+    if (result) {
+      nlohmann::json response_json = {
+        {"success", true},
+        {"message", "Verification code sent successfully"},
+        {"code", result.value()} // 开发时返回验证码，生产环境应移除
+      };
+      return createJsonResponse(http::status::ok, response_json);
+    } else {
+      return createErrorResponse(http::status::bad_request, result.error());
+    }
+  } catch (const std::exception& e) {
+    return createErrorResponse(http::status::internal_server_error, 
+                              "Failed to process email validation: " + std::string(e.what()));
+  }
+}
+
+http::response<http::string_body> RestApiHandler::handleLoginValidateEmail(const nlohmann::json& body) {
+  try {
+    if (!body.contains("email")) {
+      return createErrorResponse(http::status::bad_request, "Missing email field");
+    }
+    
+    std::string email = body["email"];
+    auto result = auth_service_->sendAndSaveEmailVerificationCode(email, "login");
     
     if (result) {
       nlohmann::json response_json = {
@@ -142,7 +179,7 @@ http::response<http::string_body> RestApiHandler::handleRegister(const nlohmann:
   }
 }
 
-http::response<http::string_body> RestApiHandler::handleLogin(const nlohmann::json& body) {
+http::response<http::string_body> RestApiHandler::handleLoginEmailPwd(const nlohmann::json& body) {
   try {
     if (!body.contains("email") || !body.contains("password")) {
       return createErrorResponse(http::status::bad_request, "Missing email or password");
@@ -151,7 +188,41 @@ http::response<http::string_body> RestApiHandler::handleLogin(const nlohmann::js
     std::string email = body["email"];
     std::string password = body["password"];
     
-    auto result = auth_service_->login(email, password);
+    auto result = auth_service_->loginEmailPwd(email, password);
+    
+    if (result) {
+      auto [token, user] = result.value();
+      nlohmann::json response_json = {
+        {"success", true},
+        {"message", "Login successful"},
+        {"token", token},
+        {"user", {
+          {"id", user.id()},
+          {"email", user.email()},
+          {"username", user.username()},
+          {"avatar", user.avatar()}
+        }}
+      };
+      return createJsonResponse(http::status::ok, response_json);
+    } else {
+      return createErrorResponse(http::status::unauthorized, result.error());
+    }
+  } catch (const std::exception& e) {
+    return createErrorResponse(http::status::internal_server_error, 
+                              "Failed to process login: " + std::string(e.what()));
+  }
+}
+
+http::response<http::string_body> RestApiHandler::handleLoginEmailCode(const nlohmann::json& body) {
+  try {
+    if (!body.contains("email") || !body.contains("code")) {
+      return createErrorResponse(http::status::bad_request, "Missing email or code");
+    }
+    
+    std::string email = body["email"];
+    std::string code = body["code"];
+    
+    auto result = auth_service_->loginEmailVeriCode(email, code);
     
     if (result) {
       auto [token, user] = result.value();

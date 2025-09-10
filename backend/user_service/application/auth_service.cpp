@@ -11,7 +11,7 @@
 
 namespace user_service {
 
-std::expected<std::string, std::string> AuthService::registerSendEmailVerificationCode(const std::string& email) {
+std::expected<std::string, std::string> AuthService::sendAndSaveEmailVerificationCode(const std::string& email, const std::string& type) {
   if (!std::regex_match(email, email_pattern_)){
     return std::unexpected("Email format invalid");
   }
@@ -25,7 +25,7 @@ std::expected<std::string, std::string> AuthService::registerSendEmailVerificati
     std::cout<<res.error()<<std::endl;
     return std::unexpected("failed to send verification code: " + res.error());
   }else{
-    res = saveVerificationCodeToRedis(email, code);
+    res = saveVerificationCodeToRedis(email, code, type);
     if (!res){
       return std::unexpected("failed to save verification code: " + res.error());
     }
@@ -52,9 +52,9 @@ std::expected<std::string, std::string> AuthService::generateVerificationCode(co
   return code;
 }
 
-std::expected<void, std::string> AuthService::saveVerificationCodeToRedis(const std::string& email, const std::string& code){
+std::expected<void, std::string> AuthService::saveVerificationCodeToRedis(const std::string& email, const std::string& code, const std::string& type){
   common::RedisConnectionGuard conn_guard(common::RedisConnectionPool::getInstance());
-  std::string command = std::format("SETEX email_vericode:{} 120 {}", email, code);
+  std::string command = std::format("SETEX {}:email_vericode:{} 300 {}", type, email, code);
   redisReply *reply = (redisReply*)redisCommand(conn_guard.get(), command.c_str());
 
   if (reply == nullptr) {
@@ -81,14 +81,15 @@ std::expected<void, std::string> AuthService::saveVerificationCodeToRedis(const 
   }
 }
 
-std::expected<std::string, std::string> AuthService::loadVerificationCodeFromRedis(const std::string& email){
+std::expected<std::string, std::string> AuthService::loadVerificationCodeFromRedis(const std::string& email, const std::string& type){
   common::RedisConnectionGuard conn_guard(common::RedisConnectionPool::getInstance());
-  std::string command = std::format("GET email_vericode:{}", email);
+  std::string command = std::format("GET {}:email_vericode:{}", type, email);
   redisReply *reply = (redisReply*)redisCommand(conn_guard.get(), command.c_str());
 
   if (reply == nullptr) {
     return std::unexpected("redisCommand returned nullptr. Connection may be lost.");
   }
+  std::cout<<reply->str<<std::endl;
 
   std::expected<std::string, std::string> result;
   if (reply->type == REDIS_REPLY_NIL) {
@@ -110,7 +111,7 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
                                                                                        const std::string& username,
                                                                                        const std::string& password,
                                                                                        const std::string& avatar) {
-  auto code_res = loadVerificationCodeFromRedis(email);
+  auto code_res = loadVerificationCodeFromRedis(email, "register");
   if (!code_res){
     if (code_res.error() == "no verification code for email"){
       return std::unexpected("verification code not prepared");
@@ -163,8 +164,31 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
   return std::make_tuple(token, user);
 }
 
-std::expected<std::tuple<std::string, User>, std::string> AuthService::login(const std::string& email,
-                                                                            const std::string& password) {
+std::expected<std::tuple<std::string, User>, std::string> AuthService::loginEmailVeriCode(const std::string& email,
+                                                                                         const std::string& code) {
+  auto code_res = loadVerificationCodeFromRedis(email, "login");
+  if (!code_res){
+    if (code_res.error() == "no verification code for email"){
+      return std::unexpected("verification code not prepared");
+    }
+    return std::unexpected("failed to get verification code from database: " + code_res.error());
+  }
+  if (code_res.value() != code){
+    return std::unexpected("verification code wrong");
+  }
+
+  auto user_opt = repository_->findByEmail(email);
+  if (!user_opt) {
+    return std::unexpected("Invalid email");
+  }
+
+  auto user = user_opt.value();
+  auto token = createToken(user.id());
+  return std::make_tuple(token, user);
+}
+
+std::expected<std::tuple<std::string, User>, std::string> AuthService::loginEmailPwd(const std::string& email,
+                                                                                    const std::string& password) {
   auto user_opt = repository_->findByEmail(email);
   if (!user_opt) {
     return std::unexpected("Invalid email or password");

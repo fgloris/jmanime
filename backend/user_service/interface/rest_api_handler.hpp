@@ -25,9 +25,11 @@ public:
 private:
   std::shared_ptr<AuthService> auth_service_;
   
-  http::response<http::string_body> handleValidateEmail(const nlohmann::json& body);
+  http::response<http::string_body> handleRegisterValidateEmail(const nlohmann::json& body);
   http::response<http::string_body> handleRegister(const nlohmann::json& body);
-  http::response<http::string_body> handleLogin(const nlohmann::json& body);
+  http::response<http::string_body> handleLoginEmailPwd(const nlohmann::json& body);
+  http::response<http::string_body> handleLoginEmailCode(const nlohmann::json& body);
+  http::response<http::string_body> handleLoginValidateEmail(const nlohmann::json& body);
   http::response<http::string_body> handleValidateToken(const std::string& token);
   
   http::response<http::string_body> createJsonResponse(

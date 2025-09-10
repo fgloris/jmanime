@@ -13,7 +13,7 @@ public:
   grpc::Status ValidateEmail(grpc::ServerContext* context,
                             const ValidateEmailRequest* request,
                             ValidateEmailResponse* response) override {
-    auto result = auth_service_->registerSendEmailVerificationCode(request->email());
+    auto result = auth_service_->sendAndSaveEmailVerificationCode(request->email(), "register");
     
     response->set_send_code_success(result.has_value());
     if (!result) {
@@ -49,7 +49,7 @@ public:
   grpc::Status Login(grpc::ServerContext* context,
                     const LoginRequest* request,
                     LoginResponse* response) override {
-    auto result = auth_service_->login(
+    auto result = auth_service_->loginEmailPwd(
       request->email(),
       request->password()
     );

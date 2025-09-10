@@ -23,11 +23,14 @@ public:
                                                                             const std::string& password,
                                                                             const std::string& avatar);
 
-  std::expected<std::string, std::string> registerSendEmailVerificationCode(const std::string& email);
+  std::expected<std::string, std::string> sendAndSaveEmailVerificationCode(const std::string& email, const std::string& type);
 
   // return token, user struct
-  std::expected<std::tuple<std::string, User>, std::string> login(const std::string& email,
-                                          const std::string& password);
+  std::expected<std::tuple<std::string, User>, std::string> loginEmailPwd(const std::string& email,
+                                                                         const std::string& password);
+
+  std::expected<std::tuple<std::string, User>, std::string> loginEmailVeriCode(const std::string& email,
+                                                                              const std::string& code);
 
   // return user_id
   std::expected<std::string, std::string> validateToken(const std::string& token);
@@ -35,8 +38,8 @@ public:
   std::expected<void, std::string> sendEmailVerificationCode(const std::string& email, const std::string& code);
 private:
   std::expected<std::string, std::string> generateVerificationCode(const std::string& email);
-  std::expected<void, std::string> saveVerificationCodeToRedis(const std::string& email, const std::string& code);
-  std::expected<std::string, std::string> loadVerificationCodeFromRedis(const std::string& email);
+  std::expected<void, std::string> saveVerificationCodeToRedis(const std::string& email, const std::string& code, const std::string& type);
+  std::expected<std::string, std::string> loadVerificationCodeFromRedis(const std::string& email, const std::string& type);
 
   std::shared_ptr<UserRepository> repository_;
   std::shared_ptr<EmailSender> email_sender_;
