@@ -1,0 +1,43 @@
+#pragma once
+
+#include "common/config.hpp"
+#include "common/connection_pool.hpp"
+#include <hiredis/hiredis.h>
+#include <memory>
+
+namespace common {
+
+class RedisConnection : public Connection {
+public:
+  RedisConnection();
+  RedisConnection(redisContext* conn): conn_(conn) {}
+  ~RedisConnection() override { if (conn_) redisFree(conn_); }
+  
+  redisContext* get() const { return conn_; }
+  bool isValid() const override;
+
+  RedisConnection(RedisConnection&& other): conn_(other.conn_) {other.conn_ = nullptr; }
+  RedisConnection& operator=(RedisConnection&& other) noexcept;
+
+private:
+  redisContext* conn_ = nullptr;
+};
+
+
+class RedisConnectionPool final : public ConnectionPool{
+  public:
+  RedisConnectionPool();
+  std::unique_ptr<Connection> createConnection() override;
+  private:
+  config::RedisConfig redis_config_;
+};
+
+class RedisConnectionGuard final : public ConnectionGuard{
+  using ConnectionGuard::ConnectionGuard;
+public:
+  redisContext* get() const {
+    return static_cast<RedisConnection*>(conn_.get())->get();
+  }
+
+};
+} // namespace common

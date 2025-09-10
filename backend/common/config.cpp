@@ -11,6 +11,11 @@ namespace config {
       .idle_timeout = std::chrono::seconds(600)
     },
 
+    redis_ = {
+      .host = "127.0.0.1", 
+      .port = 6379
+    },
+
     database_ = {
       .host = "localhost",
       .user = "root",

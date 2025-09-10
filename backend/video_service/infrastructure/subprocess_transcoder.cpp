@@ -73,14 +73,14 @@ std::string SubprocessTranscoder::buildFFmpegCommand(const TranscoderParams& par
 
 std::expected<VideoFileStorage, std::string> SubprocessTranscoder::executeTranscode(const TranscoderParams& params) {
   if (!ffmpeg_available_) {
-    return std::unexpected<std::string>("FFmpeg is not installed or not found in PATH");
+    return std::unexpected("FFmpeg is not installed or not found in PATH");
   }
   
   std::string command = buildFFmpegCommand(params);
   int result = std::system(command.c_str());
   
   if (result != 0) {
-    return std::unexpected<std::string>("FFmpeg command failed with code: " + std::to_string(result));
+    return std::unexpected("FFmpeg command failed with code: " + std::to_string(result));
   }
   
   VideoFileStorage storage;

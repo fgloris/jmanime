@@ -2,8 +2,11 @@
 #include "common/config.hpp"
 #include <cassert>
 #include <chrono>
-#include <openssl/err.h>
+#include <expected>
+#include <format>
+#include <hiredis/hiredis.h>
 #include <openssl/rand.h>
+#include <string>
 
 namespace user_service {
 
@@ -21,7 +24,7 @@ std::expected<std::string, std::string> AuthService::registerSendEmailVerificati
     std::cout<<res.error()<<std::endl;
     return std::unexpected("failed to send verification code: " + res.error());
   }else{
-    res = saveVerificationCodeToDB(email, code);
+    res = saveVerificationCodeToRedis(email, code);
     if (!res){
       return std::unexpected("failed to save verification code: " + res.error());
     }
@@ -30,7 +33,6 @@ std::expected<std::string, std::string> AuthService::registerSendEmailVerificati
 }
 
 std::expected<std::string, std::string> AuthService::generateVerificationCode(const std::string& email){
-  return "123456";
   const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const int code_length = 8;
   
@@ -49,12 +51,57 @@ std::expected<std::string, std::string> AuthService::generateVerificationCode(co
   return code;
 }
 
-std::expected<void, std::string> AuthService::saveVerificationCodeToDB(const std::string& email, const std::string& code){
-  return {};
+std::expected<void, std::string> AuthService::saveVerificationCodeToRedis(const std::string& email, const std::string& code){
+  common::RedisConnectionGuard conn_guard(*redis_pool_);
+  std::string command = std::format("SETEX email_vericode:{} 120 {}", email, code);
+  redisReply *reply = (redisReply*)redisCommand(conn_guard.get(), command.c_str());
+
+  if (reply == nullptr) {
+    return std::unexpected("redisCommand returned nullptr. Connection may be lost.");
+  }
+
+  bool success = false;
+  std::string error_msg;
+
+  if (reply->type == REDIS_REPLY_STATUS && strcmp(reply->str, "OK") == 0) {
+    success = true;
+  } else if (reply->type == REDIS_REPLY_ERROR) {
+    error_msg = "Redis error: " + std::string(reply->str, reply->len);
+  } else {
+    error_msg = "Unexpected Redis reply type: " + std::to_string(reply->type);
+  }
+
+  freeReplyObject(reply);
+
+  if (success) {
+    return {};
+  } else {
+    return std::unexpected(error_msg);
+  }
 }
 
-std::expected<std::string, std::string> AuthService::loadVerificationCodeFromDB(const std::string& email){
-  return "123456";
+std::expected<std::string, std::string> AuthService::loadVerificationCodeFromRedis(const std::string& email){
+  common::RedisConnectionGuard conn_guard(*redis_pool_);
+  std::string command = std::format("GET email_vericode:{}", email);
+  redisReply *reply = (redisReply*)redisCommand(conn_guard.get(), command.c_str());
+
+  if (reply == nullptr) {
+    return std::unexpected("redisCommand returned nullptr. Connection may be lost.");
+  }
+
+  std::expected<std::string, std::string> result;
+  if (reply->type == REDIS_REPLY_NIL) {
+    result = std::unexpected("no verification code for email: " + email);
+  } else if (reply->type == REDIS_REPLY_STRING) {
+    result = std::string(reply->str, reply->len);
+  } else if (reply->type == REDIS_REPLY_ERROR) {
+    result = std::unexpected("Redis error: " + std::string(reply->str, reply->len));
+  } else {
+    result = std::unexpected("Unexpected Redis reply type: " + std::to_string(reply->type));
+  }
+
+  freeReplyObject(reply);
+  return result;
 }
 
 std::expected<std::tuple<std::string, User>, std::string> AuthService::registerAndStore(const std::string& email,
@@ -62,7 +109,7 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
                                                                                        const std::string& username,
                                                                                        const std::string& password,
                                                                                        const std::string& avatar) {
-  auto code_res = loadVerificationCodeFromDB(email);
+  auto code_res = loadVerificationCodeFromRedis(email);
   if (!code_res){
     if (code_res.error() == "no verification code for email"){
       return std::unexpected("verification code not prepared");

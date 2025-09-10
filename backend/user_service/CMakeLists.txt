@@ -9,6 +9,9 @@ find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
 find_package(Boost REQUIRED)
+find_package(OpenSSL REQUIRED)
+
+pkg_check_modules(HIREDIS REQUIRED hiredis)
 pkg_check_modules(UUID REQUIRED uuid)
 pkg_check_modules(MYSQLCLIENT REQUIRED mysqlclient)
 
@@ -38,6 +41,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   ${UUID_LIBRARIES}
   ${Boost_LIBRARIES}
   ${MYSQLCLIENT_LIBRARIES}
+  ${HIREDIS_LIBRARIES}
   protobuf::libprotobuf
   gRPC::grpc
   gRPC::grpc++
@@ -45,7 +49,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   uuid
 )
 
-add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} ${COMMON_SOURCES})
+add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} "../common/config.cpp")
 
 target_include_directories(${PROJECT_NAME}_client PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -55,9 +59,6 @@ target_include_directories(${PROJECT_NAME}_client PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME}_client PRIVATE
-  ${MYSQLCLIENT_LIBRARIES}
-  protobuf::libprotobuf
   gRPC::grpc
   gRPC::grpc++
-  jwt-cpp
 )

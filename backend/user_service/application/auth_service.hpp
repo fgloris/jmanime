@@ -4,6 +4,7 @@
 #include <regex>
 #include <jwt-cpp/jwt.h>
 #include <uuid.h>
+#include "common/redis_connection_pool.hpp"
 #include "domain/user.hpp"
 #include "domain/user_repository.hpp"
 #include "domain/email_sender.hpp"
@@ -11,8 +12,8 @@
 namespace user_service {
 class AuthService {
 public:
-  AuthService(std::shared_ptr<UserRepository> repository, std::shared_ptr<EmailSender> email_sender)
-    : repository_(repository), email_sender_(email_sender),
+  AuthService(std::shared_ptr<UserRepository> repository, std::shared_ptr<EmailSender> email_sender, std::shared_ptr<common::RedisConnectionPool> redis_pool)
+    : repository_(repository), email_sender_(email_sender), redis_pool_(redis_pool),
       email_pattern_("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
 	"@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$") {}
 
@@ -35,11 +36,12 @@ public:
   std::expected<void, std::string> sendEmailVerificationCode(const std::string& email, const std::string& code);
 private:
   std::expected<std::string, std::string> generateVerificationCode(const std::string& email);
-  std::expected<void, std::string> saveVerificationCodeToDB(const std::string& email, const std::string& code);
-  std::expected<std::string, std::string> loadVerificationCodeFromDB(const std::string& email);
+  std::expected<void, std::string> saveVerificationCodeToRedis(const std::string& email, const std::string& code);
+  std::expected<std::string, std::string> loadVerificationCodeFromRedis(const std::string& email);
 
   std::shared_ptr<UserRepository> repository_;
   std::shared_ptr<EmailSender> email_sender_;
+  std::shared_ptr<common::RedisConnectionPool> redis_pool_;
   std::string createToken(const std::string& user_id);
   std::regex email_pattern_;
 };

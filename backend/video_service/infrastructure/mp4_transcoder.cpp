@@ -59,7 +59,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   auto& config = config::Config::getInstance();
   
   if (const auto ret = openInputFile(input_path, ctx); !ret) {
-    return std::unexpected<std::string>(ret.error());
+    return std::unexpected(ret.error());
   }
   else if ((!std::strcmp(ctx.video_dec_ctx->codec->name, config.getFormat().codec.c_str()))
     && contains_format(ctx.input_ctx->iformat->name, "mp4")){
@@ -75,17 +75,17 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
             if (std::filesystem::remove(output_path, ec)) {
                 std::filesystem::copy_file(input_path, output_path);
             } else {
-                return std::unexpected<std::string>(
+                return std::unexpected(
                   "Failed to remove existing file: " + output_base_path + 
                   ", Error: " + ec.message()
                 );
             }
         } catch (const std::filesystem::filesystem_error& remove_error) {
-            return std::unexpected<std::string>(
+            return std::unexpected(
                 std::string("Error handling existing file: ") + remove_error.what()
             );
         }
-      }else return std::unexpected<std::string>(std::string("Error copying file:") + e.what());
+      }else return std::unexpected(std::string("Error copying file:") + e.what());
     }
     return VideoFileStorage{
       .path = output_path,
@@ -98,11 +98,11 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
 
   if (const auto ret = openOutputFile(output_path, ctx, config.getFormat().codec_lib, config.getFormat().codec, config.getFormat().crf);
       !ret) {
-    return std::unexpected<std::string>(ret.error());
+    return std::unexpected(ret.error());
   }
 
   if (avformat_write_header(ctx.output_ctx, nullptr) < 0) {
-    return std::unexpected<std::string>("Failed to write header");
+    return std::unexpected("Failed to write header");
   }
 
   int64_t total_frames = ctx.video_stream->nb_frames;
@@ -112,7 +112,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
   AVPacket* packet = av_packet_alloc();
 
   if (!frame || !packet) {
-    return std::unexpected<std::string>("Could not allocate frame or packet");
+    return std::unexpected("Could not allocate frame or packet");
   }
 
   while (true) {
@@ -124,7 +124,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
       // Send packet to decoder
       if (avcodec_send_packet(ctx.video_dec_ctx, packet) < 0) {
         av_packet_unref(packet);
-        return std::unexpected<std::string>("Error sending packet to decoder");
+        return std::unexpected("Error sending packet to decoder");
       }
 
       while (true) {
@@ -133,11 +133,11 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
             ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
           break;
         } else if (ret < 0) {
-          return std::unexpected<std::string>("Error receiving frame from decoder");
+          return std::unexpected("Error receiving frame from decoder");
         }
         
         if (avcodec_send_frame(ctx.video_enc_ctx, frame) < 0) {
-          return std::unexpected<std::string>("Error sending frame to encoder");
+          return std::unexpected("Error sending frame to encoder");
         }
 
         while (true) {
@@ -145,12 +145,12 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
               ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
             break;
           } else if (ret < 0) {
-            return std::unexpected<std::string>("Error receiving packet from encoder");
+            return std::unexpected("Error receiving packet from encoder");
           }
 
           // Write encoded packet
           if (av_interleaved_write_frame(ctx.output_ctx, packet) < 0) {
-            return std::unexpected<std::string>("Error writing output packet");
+            return std::unexpected("Error writing output packet");
           }
         }
 
@@ -160,7 +160,7 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
       AVPacket* audio_packet = av_packet_clone(packet);
       if (!audio_packet) {
           av_packet_unref(packet);
-          return std::unexpected<std::string>("Failed to clone audio packet");
+          return std::unexpected("Failed to clone audio packet");
       }
       
       // 设置正确的输出流索引
@@ -174,13 +174,13 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
       // 写入音频包
       if (av_interleaved_write_frame(ctx.output_ctx, audio_packet) < 0) {
           av_packet_free(&audio_packet);
-          return std::unexpected<std::string>("Error writing audio packet");
+          return std::unexpected("Error writing audio packet");
       }
       
       av_packet_free(&audio_packet);
       //if (avcodec_send_packet(ctx.video_dec_ctx, packet) < 0) {
       //  av_packet_unref(packet);
-      //  return std::unexpected<std::string>("Error sending packet to decoder");
+      //  return std::unexpected("Error sending packet to decoder");
       //}
     }
     av_packet_unref(packet);
@@ -193,16 +193,16 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
         ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
       break;
     }else if (ret < 0) {
-      return std::unexpected<std::string>("Error flushing encoder");
+      return std::unexpected("Error flushing encoder");
     }
     if (av_interleaved_write_frame(ctx.output_ctx, packet) < 0) {
-      return std::unexpected<std::string>("Error writing output packet during flush");
+      return std::unexpected("Error writing output packet during flush");
     }
   }
 
   // Write trailer
   if (av_write_trailer(ctx.output_ctx) < 0) {
-    return std::unexpected<std::string>("Failed to write trailer");
+    return std::unexpected("Failed to write trailer");
   }
 
   VideoFormat fmt = getVideoFormatFromContext(ctx, "enc");
@@ -219,14 +219,14 @@ std::expected<VideoFileStorage, std::string> MP4Transcoder::transcode(const std:
 
 std::expected<void, std::string> MP4Transcoder::openInputFile(const std::string& input_path, MP4Transcoder::Context& ctx) {
   if (avformat_open_input(&(ctx.input_ctx), input_path.c_str(), nullptr, nullptr) < 0) {
-    return std::unexpected<std::string>("Could not open input file");
+    return std::unexpected("Could not open input file");
   }
   if (avformat_find_stream_info(ctx.input_ctx, nullptr) < 0) {
-    return std::unexpected<std::string>("Could not find stream info");
+    return std::unexpected("Could not find stream info");
   }
   if (ctx.video_stream_idx = av_find_best_stream(ctx.input_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
     ctx.video_stream_idx < 0) {
-    return std::unexpected<std::string>("Could not find video stream");
+    return std::unexpected("Could not find video stream");
   }
   ctx.video_stream = ctx.input_ctx->streams[ctx.video_stream_idx];
   
@@ -236,7 +236,7 @@ std::expected<void, std::string> MP4Transcoder::openInputFile(const std::string&
   }
 
   if (const auto result = initVideoDecoder(ctx); !result) {
-    return std::unexpected<std::string>(result.error());
+    return std::unexpected(result.error());
   }
   return {};
 }
@@ -250,24 +250,24 @@ std::expected<void, std::string> MP4Transcoder::openOutputFile(const std::string
   int ret = avformat_alloc_output_context2(&ctx.output_ctx, nullptr, 
                                           "mp4", output_path.c_str());
   if (!ctx.output_ctx) {
-    return std::unexpected<std::string>("Could not create output context");
+    return std::unexpected("Could not create output context");
   }
 
   AVStream* out_video_stream = avformat_new_stream(ctx.output_ctx, nullptr);
   if (!out_video_stream) {
-    return std::unexpected<std::string>("Failed to allocate output stream");
+    return std::unexpected("Failed to allocate output stream");
   }
 
   if (ctx.audio_stream_idx >= 0) {
     AVStream* out_audio_stream = avformat_new_stream(ctx.output_ctx, NULL);
     
     if (!out_audio_stream) {
-      return std::unexpected<std::string>("Failed to allocate output audio stream");
+      return std::unexpected("Failed to allocate output audio stream");
     }
     
     // 复制编解码器参数, codecpar = codec parameter
     if (avcodec_parameters_copy(out_audio_stream->codecpar, ctx.audio_stream->codecpar) < 0) {
-      return std::unexpected<std::string>("Failed to copy audio codec parameters");
+      return std::unexpected("Failed to copy audio codec parameters");
     }
     
     out_audio_stream->time_base = ctx.audio_stream->time_base;
@@ -278,18 +278,18 @@ std::expected<void, std::string> MP4Transcoder::openOutputFile(const std::string
   }
   
   if (const auto ret = initVideoEncoder(ctx, codec_lib, target_codec, crf); !ret) {
-    return std::unexpected<std::string>(ret.error());
+    return std::unexpected(ret.error());
   }
 
   if (avcodec_parameters_from_context(out_video_stream->codecpar, ctx.video_enc_ctx) < 0) {
-    return std::unexpected<std::string>("Failed to copy encoder parameters to output stream");
+    return std::unexpected("Failed to copy encoder parameters to output stream");
   }
 
   out_video_stream->time_base = ctx.video_enc_ctx->time_base;
 
   if (!(ctx.output_ctx->oformat->flags & AVFMT_NOFILE)) {
     if (avio_open(&ctx.output_ctx->pb, output_path.c_str(), AVIO_FLAG_WRITE) < 0) {
-      return std::unexpected<std::string>("Could not open output file");
+      return std::unexpected("Could not open output file");
     }
   }
   return {};
@@ -299,16 +299,16 @@ std::expected<void, std::string> MP4Transcoder::openOutputFile(const std::string
 std::expected<void, std::string> MP4Transcoder::initVideoDecoder(Context& ctx) {
   const AVCodec* decoder = avcodec_find_decoder(ctx.video_stream->codecpar->codec_id);
   if (!decoder) {
-    return std::unexpected<std::string>("Failed to find decoder");
+    return std::unexpected("Failed to find decoder");
   }
   if (ctx.video_dec_ctx = avcodec_alloc_context3(decoder); !ctx.video_dec_ctx) {
-    return std::unexpected<std::string>("Failed to allocate decoder context");
+    return std::unexpected("Failed to allocate decoder context");
   }
   if (avcodec_parameters_to_context(ctx.video_dec_ctx, ctx.video_stream->codecpar) < 0) {
-    return std::unexpected<std::string>("Failed to copy decoder params");
+    return std::unexpected("Failed to copy decoder params");
   }
   if (avcodec_open2(ctx.video_dec_ctx, decoder, nullptr) < 0) {
-    return std::unexpected<std::string>("Failed to open decoder");
+    return std::unexpected("Failed to open decoder");
   }
   return {};
 }
@@ -316,12 +316,12 @@ std::expected<void, std::string> MP4Transcoder::initVideoDecoder(Context& ctx) {
 std::expected<void, std::string> MP4Transcoder::initVideoEncoder(Context& ctx, const std::string& codec_lib, const std::string& target_codec, int crf) {
   const AVCodec* encoder = avcodec_find_encoder_by_name(codec_lib.c_str());
   if (!encoder) {
-    return std::unexpected<std::string>("Failed to find encoder: " + codec_lib);
+    return std::unexpected("Failed to find encoder: " + codec_lib);
   }
 
   ctx.video_enc_ctx = avcodec_alloc_context3(encoder);
   if (!ctx.video_enc_ctx) {
-    return std::unexpected<std::string>("Failed to allocate encoder context");
+    return std::unexpected("Failed to allocate encoder context");
   }
 
   ctx.video_enc_ctx->height = ctx.video_dec_ctx->height;

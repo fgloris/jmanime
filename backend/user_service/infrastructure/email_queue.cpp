@@ -221,7 +221,7 @@ int SMTPEmailQueue::readResponse() {
 
   std::expected<void, std::string> SMTPEmailQueue::sendEmail(EmailTask& task) {
     if (!connected_ || !socket_) {
-      return std::unexpected<std::string>("connection not valid");
+      return std::unexpected("connection not valid");
     }
 
     
@@ -234,20 +234,20 @@ int SMTPEmailQueue::readResponse() {
       int ret_code = readResponse();
       if (ret_code != 250) {
         if (ret_code == 451){
-          return std::unexpected<std::string>("Mail From message send failed, ret code:" + std::to_string(ret_code) + "smtp server refuses to recieve trash mails");
+          return std::unexpected("Mail From message send failed, ret code:" + std::to_string(ret_code) + "smtp server refuses to recieve trash mails");
         }
-        return std::unexpected<std::string>("Mail From message send failed, ret code:" + std::to_string(ret_code));
+        return std::unexpected("Mail From message send failed, ret code:" + std::to_string(ret_code));
       }
       
       // RCPT TO
       std::string rcpt_to_cmd = "RCPT TO:<" + task.to_email + ">\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(rcpt_to_cmd));
-      if (int ret_code = readResponse() != 250) return std::unexpected<std::string>("Rcpt To message send failed, ret code:" + std::to_string(ret_code));
+      if (int ret_code = readResponse() != 250) return std::unexpected("Rcpt To message send failed, ret code:" + std::to_string(ret_code));
       
       // DATA
       std::string data_cmd = "DATA\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(data_cmd));
-      if (int ret_code = readResponse() != 354) return std::unexpected<std::string>("Data message send failed, ret code:" + std::to_string(ret_code));
+      if (int ret_code = readResponse() != 354) return std::unexpected("Data message send failed, ret code:" + std::to_string(ret_code));
       
       // 邮件内容
       std::string email_body = "From: " + cfg_.email_sender_name + "\r\n"
@@ -258,13 +258,13 @@ int SMTPEmailQueue::readResponse() {
                             + "\r\n"
                             + task.body + "\r\n";
       boost::asio::write(*socket_, boost::asio::buffer(email_body + "\r\n.\r\n"));
-      if (int ret_code = readResponse() != 250) return std::unexpected<std::string>("Email Body message send failed, ret code:" + std::to_string(ret_code));
+      if (int ret_code = readResponse() != 250) return std::unexpected("Email Body message send failed, ret code:" + std::to_string(ret_code));
       
       return {};
     } catch (const std::exception& e) {
       // 连接可能断开，标记为未连接
       connected_ = false;
-      return std::unexpected<std::string>("Connection error");
+      return std::unexpected("Connection error");
     }
   }
 }
