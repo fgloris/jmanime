@@ -13,59 +13,12 @@ public:
   grpc::Status ValidateEmail(grpc::ServerContext* context,
                             const ValidateEmailRequest* request,
                             ValidateEmailResponse* response) override {
-    auto result = auth_service_->sendAndSaveEmailVerificationCode(request->email(), "register");
+    auto result = auth_service_->sendAndSaveEmailVerificationCode(request->email(), request->type());
     
     response->set_send_code_success(result.has_value());
     if (!result) {
       response->set_message(result.error());
     }
-    return grpc::Status::OK;
-  }
-
-  grpc::Status Register(grpc::ServerContext* context,
-                       const RegisterRequest* request,
-                       RegisterResponse* response) override {
-    auto result = auth_service_->registerAndStore(
-      request->email(),
-      request->vericode(),
-      request->username(),
-      request->password(),
-      request->avatar()
-    );
-
-    if (!result) {
-      response->set_success(false);
-      response->set_message(result.error());
-      return grpc::Status::OK;
-    }
-
-    auto [token, user] = result.value();
-    response->set_success(true);
-    response->set_user_id(user.id());
-    response->set_token(token);
-    return grpc::Status::OK;
-  }
-
-  grpc::Status Login(grpc::ServerContext* context,
-                    const LoginRequest* request,
-                    LoginResponse* response) override {
-    auto result = auth_service_->loginEmailPwd(
-      request->email(),
-      request->password()
-    );
-
-    if (!result) {
-      response->set_success(false);
-      response->set_message(result.error());
-      return grpc::Status::OK;
-    }
-
-    auto [token, user] = result.value();
-    response->set_success(true);
-    response->set_token(token);
-    response->set_user_id(user.id());
-    response->set_username(user.username());
-    response->set_avatar(user.avatar());
     return grpc::Status::OK;
   }
 

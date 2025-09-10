@@ -86,5 +86,5 @@ set(PROTO_HDRS
 file(GLOB_RECURSE COMMON_SOURCES "common/*.cpp")
 
 add_subdirectory(third_parties/jwt-cpp)
-# add_subdirectory(video_service)
+add_subdirectory(video_service)
 add_subdirectory(user_service)

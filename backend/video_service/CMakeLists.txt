@@ -18,8 +18,7 @@ pkg_check_modules(MYSQLCLIENT REQUIRED mysqlclient)
 message(STATUS "Using boost ${Boost_VERSION}, gRPC ${gRPC_VERSION}, Protobuf ${Protobuf_VERSION}")
 
 file(GLOB_RECURSE SOURCES 
-  "application/*.cpp" "domain/*.cpp" "infrastructure/*.cpp" "interface/*.cpp"
-  "../common/*.cpp"
+  "application/*.cpp" "domain/*.cpp" "infrastructure/*.cpp" "interface/*.cpp" "../common/config.cpp"
 )
 add_executable(${PROJECT_NAME} 
   ${SOURCES}
@@ -52,7 +51,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   uuid
 )
 
-add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} ${COMMON_SOURCES})
+add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} "../common/config.cpp")
 
 target_include_directories(${PROJECT_NAME}_client PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -68,7 +67,7 @@ target_link_libraries(${PROJECT_NAME}_client PRIVATE
 )
 
 # Add transcoder test executable
-add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp ${COMMON_SOURCES})
+add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp "../common/config.cpp")
 
 target_include_directories(test_transcoder PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}

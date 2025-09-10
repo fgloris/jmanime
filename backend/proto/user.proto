@@ -4,47 +4,17 @@ package user_service;
 
 service UserService {
   rpc ValidateEmail(ValidateEmailRequest) returns (ValidateEmailResponse) {};
-  rpc Register(RegisterRequest) returns (RegisterResponse) {};
-  rpc Login(LoginRequest) returns (LoginResponse) {};
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse) {};
 }
 
 message ValidateEmailRequest {
   string email = 1;
+  string type = 2;
 }
 
 message ValidateEmailResponse {
   bool send_code_success = 1;
   string message = 2;
-}
-
-message RegisterRequest {
-  string email = 1;
-  string vericode = 2;
-  string username = 3;
-  string password = 4;
-  string avatar = 5;
-}
-
-message RegisterResponse {
-  bool success = 1;
-  string message = 2;
-  string user_id = 3;
-  string token = 4;
-}
-
-message LoginRequest {
-  string email = 1;
-  string password = 2;
-}
-
-message LoginResponse {
-  bool success = 1;
-  string message = 2;
-  string user_id = 3;
-  string token = 4;
-  string username = 5;
-  string avatar = 6;
 }
 
 message ValidateTokenRequest {

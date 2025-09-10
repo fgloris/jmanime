@@ -48,17 +48,3 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   jwt-cpp
   uuid
 )
-
-add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} "../common/config.cpp")
-
-target_include_directories(${PROJECT_NAME}_client PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${Protobuf_INCLUDE_DIRS}
-  ${CMAKE_CURRENT_BINARY_DIR}
-  ${PROTO_GEN_DIR}
-)
-
-target_link_libraries(${PROJECT_NAME}_client PRIVATE
-  gRPC::grpc
-  gRPC::grpc++
-)

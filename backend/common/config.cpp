@@ -5,8 +5,8 @@ namespace config {
   
   Config::Config() {
     db_cp_ = {
-      .min_connections = 4,
-      .max_connections = 16,
+      .min_connections = 16,
+      .max_connections = 32,
       .timeout = std::chrono::milliseconds(5000),
       .idle_timeout = std::chrono::seconds(600)
     },

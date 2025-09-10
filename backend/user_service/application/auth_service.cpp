@@ -22,7 +22,6 @@ std::expected<std::string, std::string> AuthService::sendAndSaveEmailVerificatio
   std::string code = res_code.value();
   auto res = sendEmailVerificationCode(email, code);
   if (!res){
-    std::cout<<res.error()<<std::endl;
     return std::unexpected("failed to send verification code: " + res.error());
   }else{
     res = saveVerificationCodeToRedis(email, code, type);
@@ -89,7 +88,6 @@ std::expected<std::string, std::string> AuthService::loadVerificationCodeFromRed
   if (reply == nullptr) {
     return std::unexpected("redisCommand returned nullptr. Connection may be lost.");
   }
-  std::cout<<reply->str<<std::endl;
 
   std::expected<std::string, std::string> result;
   if (reply->type == REDIS_REPLY_NIL) {
@@ -237,7 +235,7 @@ std::expected<std::string, std::string> AuthService::validateToken(const std::st
 std::string AuthService::createToken(const std::string& user_id) {
   const auto& auth = config::Config::getInstance().getAuth();
   return jwt::create()
-    .set_issuer("auth0")
+    .set_issuer("jmanime_user_service")
     .set_type("JWT")
     .set_issued_now()
     .set_expires_in(std::chrono::seconds(3600*auth.jwt_expire_hours))
