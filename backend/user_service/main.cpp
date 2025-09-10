@@ -9,7 +9,6 @@
 #include "interface/user_service_impl.hpp"
 #include "interface/rest_api_handler.hpp"
 #include "common/config.hpp"
-#include "common/redis_connection_pool.hpp"
 #include <sstream>
 
 int main(int argc, char** argv) {
@@ -26,11 +25,11 @@ int main(int argc, char** argv) {
 
     auto email_sender = std::make_shared<user_service::SMTPEmailQueue>();
 
-    auto redis_pool = std::make_shared<common::RedisConnectionPool>();
+    
 
     // 初始化认证服务
     auto auth_service = std::make_shared<user_service::AuthService>(
-      repository, email_sender, redis_pool
+      repository, email_sender
     );
 
     // 初始化gRPC服务

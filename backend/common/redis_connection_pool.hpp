@@ -25,10 +25,15 @@ private:
 
 
 class RedisConnectionPool final : public ConnectionPool{
-  public:
-  RedisConnectionPool();
+public:
+  static RedisConnectionPool& getInstance() {
+    static RedisConnectionPool instance;
+    return instance;
+  }
   std::unique_ptr<Connection> createConnection() override;
-  private:
+
+private:
+  RedisConnectionPool();
   config::RedisConfig redis_config_;
 };
 

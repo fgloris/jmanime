@@ -26,10 +26,15 @@ private:
 
 
 class MySQLConnectionPool final : public ConnectionPool{
-  public:
-  MySQLConnectionPool();
+public:
+  static MySQLConnectionPool& getInstance() {
+    static MySQLConnectionPool instance;
+    return instance;
+  }
   std::unique_ptr<Connection> createConnection() override;
-  private:
+
+private:
+  MySQLConnectionPool();
   config::DatabaseConfig db_config_;
 };
 

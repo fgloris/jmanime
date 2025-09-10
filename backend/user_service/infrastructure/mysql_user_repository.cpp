@@ -3,13 +3,12 @@
 #include "common/mysql_connection_pool.hpp"
 #include <cassert>
 #include <cppconn/prepared_statement.h>
-#include <memory>
 #include <uuid/uuid.h>
 #include <cstring>
 
 namespace user_service {
 
-MysqlUserRepository::MysqlUserRepository(): pool_(std::make_shared<common::MySQLConnectionPool>()) {
+MysqlUserRepository::MysqlUserRepository() {
   auto db_config = config::Config::getInstance().getDatabase();
 }
 
@@ -18,7 +17,7 @@ bool MysqlUserRepository::save(const User& user) {
                      "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE "
                      "email=?, username=?, password_hash=?, salt=?, avatar=?";
 
-  common::MySQLConnectionGuard conn_guard(*pool_);
+  common::MySQLConnectionGuard conn_guard(common::MySQLConnectionPool::getInstance());
 
   MYSQL_STMT* stmt = mysql_stmt_init(conn_guard.get());
   if (!stmt) {
@@ -59,7 +58,7 @@ std::optional<User> MysqlUserRepository::findById(const std::string& id) {
   const char* query = "SELECT id, email, username, password_hash, salt, avatar "
                      "FROM users WHERE id = ?";
   
-  common::MySQLConnectionGuard conn_guard(*pool_);
+  common::MySQLConnectionGuard conn_guard(common::MySQLConnectionPool::getInstance());
   MYSQL_STMT* stmt = mysql_stmt_init(conn_guard.get());
   if (!stmt) {
     return std::nullopt;
@@ -151,7 +150,7 @@ std::optional<User> MysqlUserRepository::findByEmail(const std::string& email) {
   const char* query = "SELECT id, email, username, password_hash, salt, avatar "
                      "FROM users WHERE email = ?";
   
-  common::MySQLConnectionGuard conn_guard(*pool_);
+  common::MySQLConnectionGuard conn_guard(common::MySQLConnectionPool::getInstance());
   MYSQL_STMT* stmt = mysql_stmt_init(conn_guard.get());
   if (!stmt) {
     return std::nullopt;

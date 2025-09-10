@@ -33,20 +33,20 @@ public:
 */
 class ConnectionPool {
 public:
-  ConnectionPool(const config::ConnectionPoolConfig& cfg): cp_config_(cfg){};
-  ~ConnectionPool();
-  
-  std::unique_ptr<Connection> getConnectionFromPool();
-  
-  void returnConnection(std::unique_ptr<Connection> conn);
-  
-  size_t activeConnections() const { return active_connections_; }
-  size_t availableConnections() const;
-  
-  ConnectionPool(const ConnectionPool&) = delete;
-  ConnectionPool& operator=(const ConnectionPool&) = delete;
+~ConnectionPool();
+
+std::unique_ptr<Connection> getConnectionFromPool();
+
+void returnConnection(std::unique_ptr<Connection> conn);
+
+size_t activeConnections() const { return active_connections_; }
+size_t availableConnections() const;
+
+ConnectionPool(const ConnectionPool&) = delete;
+ConnectionPool& operator=(const ConnectionPool&) = delete;
 
 protected:
+  ConnectionPool(const config::ConnectionPoolConfig& cfg): cp_config_(cfg){};
   virtual std::unique_ptr<Connection> createConnection() = 0;
 
   bool validateConnection(Connection* conn);

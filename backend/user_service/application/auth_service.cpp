@@ -1,5 +1,6 @@
 #include "auth_service.hpp"
 #include "common/config.hpp"
+#include "common/redis_connection_pool.hpp"
 #include <cassert>
 #include <chrono>
 #include <expected>
@@ -52,7 +53,7 @@ std::expected<std::string, std::string> AuthService::generateVerificationCode(co
 }
 
 std::expected<void, std::string> AuthService::saveVerificationCodeToRedis(const std::string& email, const std::string& code){
-  common::RedisConnectionGuard conn_guard(*redis_pool_);
+  common::RedisConnectionGuard conn_guard(common::RedisConnectionPool::getInstance());
   std::string command = std::format("SETEX email_vericode:{} 120 {}", email, code);
   redisReply *reply = (redisReply*)redisCommand(conn_guard.get(), command.c_str());
 
@@ -81,7 +82,7 @@ std::expected<void, std::string> AuthService::saveVerificationCodeToRedis(const 
 }
 
 std::expected<std::string, std::string> AuthService::loadVerificationCodeFromRedis(const std::string& email){
-  common::RedisConnectionGuard conn_guard(*redis_pool_);
+  common::RedisConnectionGuard conn_guard(common::RedisConnectionPool::getInstance());
   std::string command = std::format("GET email_vericode:{}", email);
   redisReply *reply = (redisReply*)redisCommand(conn_guard.get(), command.c_str());
 

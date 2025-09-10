@@ -4,7 +4,6 @@
 #include <regex>
 #include <jwt-cpp/jwt.h>
 #include <uuid.h>
-#include "common/redis_connection_pool.hpp"
 #include "domain/user.hpp"
 #include "domain/user_repository.hpp"
 #include "domain/email_sender.hpp"
@@ -12,8 +11,8 @@
 namespace user_service {
 class AuthService {
 public:
-  AuthService(std::shared_ptr<UserRepository> repository, std::shared_ptr<EmailSender> email_sender, std::shared_ptr<common::RedisConnectionPool> redis_pool)
-    : repository_(repository), email_sender_(email_sender), redis_pool_(redis_pool),
+  AuthService(std::shared_ptr<UserRepository> repository, std::shared_ptr<EmailSender> email_sender)
+    : repository_(repository), email_sender_(email_sender),
       email_pattern_("^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*" \
 	"@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$") {}
 
@@ -41,7 +40,7 @@ private:
 
   std::shared_ptr<UserRepository> repository_;
   std::shared_ptr<EmailSender> email_sender_;
-  std::shared_ptr<common::RedisConnectionPool> redis_pool_;
+  
   std::string createToken(const std::string& user_id);
   std::regex email_pattern_;
 };

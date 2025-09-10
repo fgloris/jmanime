@@ -1,11 +1,9 @@
 #pragma once
-#include "common/mysql_connection_pool.hpp"
 #include "domain/user_repository.hpp"
 #include <mysql/mysql.h>
 #include <string>
 #include <cstring>
 #include <vector>
-#include <memory>
 
 namespace user_service {
 class MysqlUserRepository : public UserRepository {
@@ -20,7 +18,6 @@ public:
 private:
   // 执行查询并获取单个用户结果
   std::optional<User> executeSelectQuery(const char* query, const std::string& param);
-  std::shared_ptr<common::MySQLConnectionPool> pool_;
 };
 
 
