@@ -3,11 +3,14 @@
 #include "infrastructure/downloader.hpp"
 #include "infrastructure/hls_server.hpp"
 #include "infrastructure/mp4_transcoder.hpp"
-#include "common/config.hpp"
+#include "common/config/config.hpp"
+#include "common/restful/http_server.hpp"
+#include "interface/rest_api_handler.hpp"
 #include <grpcpp/server_builder.h>
 #include <filesystem>
 #include <sstream>
 #include <thread>
+#include <boost/asio.hpp>
 
 int main(int argc, char** argv) {
   try {
@@ -41,29 +44,53 @@ int main(int argc, char** argv) {
     repository, download_service, streaming_service, transcoding_service, storage_path
   );
   
-  video_service::VideoServiceImpl service(video_service);
+  video_service::VideoServiceImpl grpc_service(video_service);
   
   const auto& service_config = cfg.getVideoService();
-  std::stringstream server_address;
-  server_address << service_config.host << ":" << service_config.port;
+  std::stringstream grpc_server_address;
+  grpc_server_address << service_config.host << ":" << service_config.port;
   
   grpc::ServerBuilder builder;
-  builder.AddListeningPort(server_address.str(), grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
+  builder.AddListeningPort(grpc_server_address.str(), grpc::InsecureServerCredentials());
+  builder.RegisterService(&grpc_service);
   
-  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-  std::cout << "Server listening on " << server_address.str() << std::endl;
+  std::unique_ptr<grpc::Server> grpc_server(builder.BuildAndStart());
+  std::cout << "gRPC Server listening on " << grpc_server_address.str() << std::endl;
+
+  // Start REST API server
+  boost::asio::io_context ioc{1};
+  auto http_port = service_config.port + 1000;
+  auto http_endpoint = boost::asio::ip::tcp::endpoint{
+    boost::asio::ip::make_address(service_config.host), 
+    static_cast<unsigned short>(http_port)
+  };
+
+  auto api_handler = std::make_shared<video_service::RestApiHandler>(video_service);
+  common::HttpServer http_server{ioc, http_endpoint, api_handler};
+
+  std::cout << "HTTP Server listening on " << service_config.host << ":" << http_port << std::endl;
+
+  std::thread http_thread([&ioc, &http_server]() {
+    grpc_server->Wait();
+  });
   
   // Start HLS server in background thread
   std::thread hls_thread([streaming_service, storage_path]() {
     streaming_service->startServer(storage_path);
   });
   
-  server->Wait();
+  http_server.run();
+  ioc.run();
   
   // Stop HLS server
   streaming_service->stopServer();
   hls_thread.join();
+
+  // Stop HTTP server
+  ioc.stop();
+  if (http_thread.joinable()) {
+    http_thread.join();
+  }
   
   return 0;
   } catch (const std::exception& e) {

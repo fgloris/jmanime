@@ -1,6 +1,6 @@
 // subprocess_transcoder.cpp
 #include "subprocess_transcoder.hpp"
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 #include <cstdio>
 
 namespace video_service {

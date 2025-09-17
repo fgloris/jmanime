@@ -7,8 +7,9 @@
 #include "infrastructure/mysql_user_repository.hpp"
 #include "application/auth_service.hpp"
 #include "interface/user_service_impl.hpp"
+#include "common/restful/http_server.hpp"
 #include "interface/rest_api_handler.hpp"
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 #include <sstream>
 
 int main(int argc, char** argv) {
@@ -52,23 +53,25 @@ int main(int argc, char** argv) {
       static_cast<unsigned short>(http_port)
     };
     
-    user_service::HttpServer http_server{ioc, http_endpoint, auth_service};
+    auto api_handler = std::make_shared<user_service::RestApiHandler>(auth_service);
+    common::HttpServer http_server{ioc, http_endpoint, api_handler};
     
     std::cout << "HTTP Server listening on " << service_config.host << ":" << http_port << std::endl;
     
-    // 在单独线程运行HTTP服务器
-    std::thread http_thread([&ioc, &http_server]() {
-      http_server.run();
-      ioc.run();
+    // 在单独线程运行grpc服务器
+    std::thread grpc_thread([&grpc_server]() {
+      grpc_server->Wait();
     });
 
-    // 主线程运行gRPC服务器
-    grpc_server->Wait();
+    http_server.run();
+    ioc.run();
+
+    // 主线程运行HTTP服务器
     
-    // 停止HTTP服务器
     ioc.stop();
-    if (http_thread.joinable()) {
-      http_thread.join();
+
+    if (grpc_thread.joinable()) {
+      grpc_thread.join();
     }
     
     return 0;

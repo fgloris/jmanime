@@ -1,6 +1,6 @@
 #include "mp4_transcoder.hpp"
 #include "domain/video.hpp"
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 #include <cstddef>
 #include <cstring>
 #include <expected>

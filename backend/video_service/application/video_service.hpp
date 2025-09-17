@@ -8,7 +8,7 @@
 #include "domain/download_service.hpp"
 #include "domain/transcoding_service.hpp"
 #include "domain/streaming_service.hpp"
-
+#include "../build/generated/user.grpc.pb.h"
 
 namespace video_service {
 class VideoService {
@@ -62,10 +62,12 @@ private:
     const std::filesystem::path& source_path,
     const std::string& auth_token
   );
+
   std::shared_ptr<VideoRepository> repository_;
   std::shared_ptr<DownloadService> download_service_;
   std::shared_ptr<StreamingService> streaming_service_;
   std::shared_ptr<TranscodingService> transcoding_service_;
   std::string storage_path_;
+  std::unique_ptr<user_service::UserService::Stub> stub_;
 };
 }

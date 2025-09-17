@@ -7,7 +7,7 @@
 #include <queue>
 #include <iostream>
 
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 
 namespace common {
 

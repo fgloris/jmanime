@@ -3,7 +3,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <print>
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 #include "infrastructure/mysql_user_repository.hpp"
 #include <iostream>
 

@@ -3,97 +3,8 @@ syntax = "proto3";
 package video;
 
 service VideoService {
-  rpc UploadVideo(UploadVideoRequest) returns (UploadVideoResponse);
-  rpc DownloadVideo(DownloadVideoRequest) returns (DownloadVideoResponse);
-  rpc StartStreaming(StartStreamingRequest) returns (StartStreamingResponse);
-  rpc GetVideoInfo(GetVideoInfoRequest) returns (GetVideoInfoResponse);
-  rpc ListVideos(ListVideosRequest) returns (ListVideosResponse);
   rpc DeleteVideo(DeleteVideoRequest) returns (DeleteVideoResponse);
   rpc ImportLocalVideos(ImportLocalVideosRequest) returns (ImportLocalVideosResponse);
-}
-
-message VideoFormat {
-  int32 width = 1;
-  int32 height = 2;
-  int32 bitrate = 3;
-  string format = 4;
-  string codec = 5;
-}
-
-message VideoFileStorage {
-  string path = 1;
-  VideoFormat format = 2;
-}
-
-message VideoPresentInfo {
-  int32 duration = 1;
-  string title = 2;
-  string description = 3;
-  string url = 4;
-  string created_at = 5;
-  string updated_at = 6;
-}
-
-message VideoFile {
-  string uuid = 1;
-  VideoFileStorage storage = 2;
-  VideoPresentInfo info = 3;
-}
-
-message UploadVideoRequest {
-  string auth_token = 1;
-  string url = 2;
-  string title = 3;
-  string description = 4;
-}
-
-message UploadVideoResponse {
-  bool success = 1;
-  string message = 2;
-  VideoFile video = 3;
-}
-
-message GetVideoInfoRequest {
-  string auth_token = 1;
-  string video_id = 2;
-}
-
-message GetVideoInfoResponse {
-  bool success = 1;
-  string message = 2;
-  VideoFile video = 3;
-}
-
-message ListVideosRequest {
-  string auth_token = 1;
-}
-
-message ListVideosResponse {
-  bool success = 1;
-  string message = 2;
-  repeated VideoFile videos = 3;
-}
-
-message DownloadVideoRequest {
-  string auth_token = 1;
-  string video_id = 2;
-}
-
-message DownloadVideoResponse {
-  bool success = 1;
-  string message = 2;
-  string download_url = 3;
-}
-
-message StartStreamingRequest {
-  string auth_token = 1;
-  string video_id = 2;
-}
-
-message StartStreamingResponse {
-  bool success = 1;
-  string message = 2;
-  string stream_url = 3;
 }
 
 message DeleteVideoRequest {
@@ -114,5 +25,4 @@ message ImportLocalVideosRequest {
 message ImportLocalVideosResponse {
   bool success = 1;
   string message = 2;
-  repeated VideoFile videos = 3;
 }

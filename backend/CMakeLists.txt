@@ -83,8 +83,8 @@ set(PROTO_HDRS
   ${user_grpc_hdrs}
 )
 
-file(GLOB_RECURSE COMMON_SOURCES "common/*.cpp")
+file(GLOB_RECURSE COMMON_SOURCES "common/*/*.cpp")
 
 add_subdirectory(third_parties/jwt-cpp)
-add_subdirectory(video_service)
+# add_subdirectory(video_service)
 add_subdirectory(user_service)

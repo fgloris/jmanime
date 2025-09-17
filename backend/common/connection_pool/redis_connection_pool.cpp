@@ -1,6 +1,6 @@
 #include "redis_connection_pool.hpp"
-#include "common/config.hpp"
-#include "common/connection_pool.hpp"
+#include "common/config/config.hpp"
+#include "common/connection_pool/connection_pool.hpp"
 #include <cstring>
 #include <hiredis/hiredis.h>
 

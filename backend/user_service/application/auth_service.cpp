@@ -1,6 +1,6 @@
 #include "auth_service.hpp"
-#include "common/config.hpp"
-#include "common/redis_connection_pool.hpp"
+#include "common/config/config.hpp"
+#include "common/connection_pool/redis_connection_pool.hpp"
 #include <cassert>
 #include <chrono>
 #include <expected>
@@ -14,6 +14,11 @@ namespace user_service {
 std::expected<std::string, std::string> AuthService::sendAndSaveEmailVerificationCode(const std::string& email, const std::string& type) {
   if (!std::regex_match(email, email_pattern_)){
     return std::unexpected("Email format invalid");
+  }
+  if (type == "register"){
+    if (repository_->findByEmail(email)){
+      return std::unexpected("Email already exists");
+    }
   }
   auto res_code = generateVerificationCode(email);
   if (!res_code){
@@ -109,6 +114,9 @@ std::expected<std::tuple<std::string, User>, std::string> AuthService::registerA
                                                                                        const std::string& username,
                                                                                        const std::string& password,
                                                                                        const std::string& avatar) {
+  if (repository_->findByEmail(email)){
+    return std::unexpected("Email already exists");
+  }
   auto code_res = loadVerificationCodeFromRedis(email, "register");
   if (!code_res){
     if (code_res.error() == "no verification code for email"){

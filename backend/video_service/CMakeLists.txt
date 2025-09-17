@@ -51,7 +51,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   uuid
 )
 
-add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} "../common/config.cpp")
+add_executable(${PROJECT_NAME}_client client.cpp ${PROTO_SRCS} "../common/config/config.cpp")
 
 target_include_directories(${PROJECT_NAME}_client PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -67,7 +67,7 @@ target_link_libraries(${PROJECT_NAME}_client PRIVATE
 )
 
 # Add transcoder test executable
-add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp "../common/config.cpp")
+add_executable(test_transcoder testtranscoder.cpp infrastructure/mp4_transcoder.cpp "../common/config/config.cpp")
 
 target_include_directories(test_transcoder PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}

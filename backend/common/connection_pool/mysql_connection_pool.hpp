@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common/config.hpp"
-#include "common/connection_pool.hpp"
+#include "common/config/config.hpp"
+#include "common/connection_pool/connection_pool.hpp"
 #include <mysql/mysql.h>
 #include <memory>
 #include <iostream>

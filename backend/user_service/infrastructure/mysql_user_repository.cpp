@@ -1,6 +1,6 @@
 #include "mysql_user_repository.hpp"
-#include "common/config.hpp"
-#include "common/mysql_connection_pool.hpp"
+#include "common/config/config.hpp"
+#include "common/connection_pool/mysql_connection_pool.hpp"
 #include <cassert>
 #include <cppconn/prepared_statement.h>
 #include <uuid/uuid.h>

@@ -1,5 +1,5 @@
 #pragma once
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 #include "domain/email_sender.hpp"
 #include <atomic>
 #include <condition_variable>

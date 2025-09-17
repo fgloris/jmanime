@@ -1,8 +1,9 @@
 #include "video_service.hpp"
-#include "common/config.hpp"
+#include "common/config/config.hpp"
 #include "domain/video.hpp"
+#include "user.grpc.pb.h"
 #include <uuid/uuid.h>
-#include <filesystem>
+#include <grpcpp/grpcpp.h>
 
 namespace video_service {
 VideoService::VideoService(std::shared_ptr<VideoRepository> repository,
@@ -14,7 +15,11 @@ VideoService::VideoService(std::shared_ptr<VideoRepository> repository,
     download_service_(download_service),
     streaming_service_(streaming_service),
     transcoding_service_(transcoding_service),
-    storage_path_(storage_path) {}
+    storage_path_(storage_path) {
+  auto& cfg = config::Config::getInstance();
+  auto channel = grpc::CreateChannel(cfg.getUserServiceIpPort(), grpc::InsecureChannelCredentials());
+  stub_ = user_service::UserService::NewStub(channel);
+}
 
 std::expected<VideoFile, std::string> VideoService::uploadVideo(
   const std::string& auth_token,
@@ -64,7 +69,6 @@ std::expected<std::string, std::string> VideoService::downloadVideo(
     return std::unexpected("Video not found");
   }
   
-  // Return direct file URL for download
   return std::expected<std::string, std::string>("/download/" + video_id + "/" + std::filesystem::path(video->storage.path).filename().string());
 }
 
